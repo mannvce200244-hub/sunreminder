@@ -1,0 +1,7 @@
+SunReminder 1.0.0
+Build environment: Linux, official .NET SDK 10.0.401
+Target: net10.0-windows / win-x64
+Release compilation: succeeded, 0 warnings, 0 errors.
+Self-contained single-file publish: succeeded.
+Final executable: App/SunReminder.exe (Windows GUI, PE32+ x86-64).
+Windows runtime checks: not executed in this environment.

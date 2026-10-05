@@ -1,0 +1,13 @@
+PASS Due event fires once and waits for user
+PASS Pause preserves remaining time
+PASS Snooze uses configured delay
+PASS Completion recorded once and next cycle starts
+PASS Snoozing a break does not record completion
+PASS Sleep discards unfinished break and restarts focus
+PASS Nested lock and suspend preserve restart intent
+PASS Paused session stays paused after sleep
+PASS Stop cancels wake restart
+PASS Configuration validation and paused reset
+PASS Data roundtrip, CSV, corrupt recovery
+PASS Null JSON collections recover safely
+All 12 tests passed.

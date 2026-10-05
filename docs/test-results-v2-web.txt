@@ -1,0 +1,24 @@
+✔ Windows schema imports without modifying source fields (2.6784ms)
+✔ malformed records and settings are rejected atomically (0.5659ms)
+✔ merge preserves history, unknown fields and is idempotent across timezone formats (0.4038ms)
+✔ identical existing records are never lost on merge (0.1449ms)
+✔ CSV contains all records with BOM and safe normalized timestamps (1.0654ms)
+✔ local day key is calendar based (0.117ms)
+✔ due fires once and waits for user (0.9065ms)
+✔ pause preserves remaining and resumes exact deadline (0.1452ms)
+✔ snooze obeys configured duration (0.1779ms)
+✔ completed break records exactly once and restarts full cycle (0.1536ms)
+✔ snoozed or stopped break never records completion (0.1564ms)
+✔ sleep discards incomplete break, nested suspend preserves restart (0.1214ms)
+✔ manual paused session stays paused after sleep (0.1226ms)
+✔ stop cancels wake restart (0.1104ms)
+✔ configuration clamps and resets paused break to focus (0.125ms)
+✔ paused break total remains break duration (0.1836ms)
+ℹ tests 16
+ℹ suites 0
+ℹ pass 16
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 143.5051

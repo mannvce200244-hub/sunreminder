@@ -1,0 +1,24 @@
+# Build output and local runtimes
+**/bin/
+**/obj/
+.tools/
+App/
+App-v*/
+Preview/
+*.zip
+
+# Private statistics, credentials and local test profiles
+**/server-data/
+**/qa-profile/
+**/qa-server*/
+**/ADMIN-LOGIN.txt
+**/admin-auth.json
+**/*.sqlite*
+**/sharing.json
+**/.env
+**/.env.*
+!**/.env.example
+*.pfx
+*.p12
+*.key
+node_modules/

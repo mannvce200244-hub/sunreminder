@@ -1,0 +1,10 @@
+import {test} from 'node:test';
+import assert from 'node:assert/strict';
+import {defaults,validateData,mergeData,csv,dayKey} from '../data.js';
+const record={CompletedAt:'2026-10-03T07:30:00+07:00',DurationSeconds:20};
+test('Windows schema imports without modifying source fields',()=>{const d=defaults();d.Breaks.push(record);d.Settings.IntervalMinutes=25;d.OutdoorDays=['2026-10-03'];d.Extra='keep';const clone=validateData(d);assert.deepEqual(clone,d);assert.notEqual(clone,d);});
+test('malformed records and settings are rejected atomically',()=>{for(const mutate of [d=>d.Breaks.push({...record,DurationSeconds:0}),d=>d.Breaks.push({...record,CompletedAt:'oops'}),d=>d.Settings.IntervalMinutes=200,d=>d.Settings.Sound='false',d=>d.OutdoorDays=['2026-02-30'],d=>d.Breaks=null]){const d=defaults();mutate(d);assert.throws(()=>validateData(d));}});
+test('merge preserves history, unknown fields and is idempotent across timezone formats',()=>{const old=defaults();old.Breaks=[record];old.OutdoorDays=['2026-10-02'];old.Custom=42;const incoming=defaults();incoming.Breaks=[{...record,CompletedAt:'2026-10-03T00:30:00.000Z'},{...record,CompletedAt:'2026-10-04T00:30:00Z'}];incoming.OutdoorDays=['2026-10-03'];incoming.Settings.IntervalMinutes=25;const merged=mergeData(old,incoming);assert.equal(merged.Breaks.length,2);assert.equal(merged.Custom,42);assert.deepEqual(merged.OutdoorDays,['2026-10-02','2026-10-03']);assert.equal(merged.Settings.IntervalMinutes,25);assert.deepEqual(mergeData(merged,incoming),merged);assert.equal(old.Breaks.length,1);});
+test('identical existing records are never lost on merge',()=>{const d=defaults();d.Breaks=[record,record];const merged=mergeData(d,d);assert.equal(merged.Breaks.length,2);});
+test('CSV contains all records with BOM and safe normalized timestamps',()=>{const d=defaults();d.Breaks=Array.from({length:501},()=>record);const output=csv(d);assert.ok(output.startsWith('\uFEFFCompletedAt,DurationSeconds'));assert.equal(output.split('\r\n').length,502);assert.ok(output.includes('2026-10-03T00:30:00.000Z,20'));});
+test('local day key is calendar based',()=>assert.equal(dayKey(new Date(2026,9,3,0,1)),'2026-10-03'));

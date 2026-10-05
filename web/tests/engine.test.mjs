@@ -1,0 +1,14 @@
+import { test } from 'node:test';
+import assert from 'node:assert/strict';
+import { ReminderEngine } from '../engine.js';
+const fixture=()=>{let time=0;const e=new ReminderEngine(()=>time);return {e,set:t=>time=t};};
+test('due fires once and waits for user',()=>{const{e,set}=fixture();let due=0;e.onDue=()=>due++;e.start();set(1199);e.tick();assert.equal(due,0);set(1200);e.tick();e.tick();assert.equal(due,1);assert.equal(e.state,'Due');});
+test('pause preserves remaining and resumes exact deadline',()=>{const{e,set}=fixture();e.start();set(300);e.pause();set(10000);e.tick();assert.equal(e.remaining,900);e.resume();set(10899);e.tick();assert.equal(e.state,'Running');set(10900);e.tick();assert.equal(e.state,'Due');});
+test('snooze obeys configured duration',()=>{const{e,set}=fixture();e.configure(20,20,3);e.postpone();set(179);e.tick();assert.equal(e.state,'Snoozed');set(180);e.tick();assert.equal(e.state,'Due');});
+test('completed break records exactly once and restarts full cycle',()=>{const{e,set}=fixture();let count=0;e.onComplete=s=>{assert.equal(s,20);count++;};e.startBreak();set(19);e.tick();assert.equal(count,0);set(20);e.tick();e.tick();assert.equal(count,1);assert.equal(e.state,'Running');assert.equal(e.remaining,1200);});
+test('snoozed or stopped break never records completion',()=>{for(const method of ['postpone','stop']){const{e,set}=fixture();let count=0;e.onComplete=()=>count++;e.startBreak();set(10);e[method]();set(20);e.tick();assert.equal(count,0);}});
+test('sleep discards incomplete break, nested suspend preserves restart',()=>{const{e,set}=fixture();let count=0;e.onComplete=()=>count++;e.startBreak();set(5);e.suspend();e.suspend();set(10000);e.tick();e.wake();assert.equal(count,0);assert.equal(e.state,'Running');assert.equal(e.remaining,1200);});
+test('manual paused session stays paused after sleep',()=>{const{e,set}=fixture();e.start();set(20);e.pause();e.suspend();set(5000);e.wake();assert.equal(e.state,'Paused');assert.equal(e.remaining,1180);});
+test('stop cancels wake restart',()=>{const{e}=fixture();e.start();e.suspend();e.stop();e.wake();assert.equal(e.state,'Idle');});
+test('configuration clamps and resets paused break to focus',()=>{const{e}=fixture();e.startBreak();e.pause();e.configure(0,0,999);assert.equal(e.interval,5);assert.equal(e.rest,20);assert.equal(e.snooze,30);assert.equal(e.remaining,300);e.resume();assert.equal(e.state,'Running');});
+test('paused break total remains break duration',()=>{const{e,set}=fixture();e.startBreak();set(8);e.pause();assert.equal(e.total,20);assert.equal(e.remaining,12);set(100);e.resume();set(111);e.tick();assert.equal(e.state,'Breaking');set(112);e.tick();assert.equal(e.state,'Running');});
