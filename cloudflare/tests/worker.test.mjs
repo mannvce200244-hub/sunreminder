@@ -20,7 +20,7 @@ before(async () => {
   db = await mf.getD1Database('DB');
 });
 after(async () => { await mf?.dispose(); });
-beforeEach(async () => { await db.batch(['participant_profiles','daily','participants','admin_sessions','user_sessions','user_accounts','request_limits'].map(table => db.prepare('DELETE FROM ' + table))); });
+beforeEach(async () => { await db.batch(['admin_transfers','usage_daily','participant_profiles','daily','participants','admin_sessions','user_sessions','user_accounts','request_limits'].map(table => db.prepare('DELETE FROM ' + table))); });
 const device = () => ({ id: 'p_' + randomBytes(16).toString('hex'), token: randomBytes(32).toString('hex') });
 const day = (count = 1, outdoor = false, date = '2026-01-02') => ({ day: date, breakCount: count, restSeconds: count * 20, outdoor });
 function post(path, data, headers = {}) {
@@ -43,7 +43,7 @@ async function report(cookie, range = '') {
 
 test('static app and admin are served; generated package excludes private/server files', async () => {
   const publicFiles = await readdir(new URL('../public/', import.meta.url));
-  assert.equal(publicFiles.length, 20);
+  assert.equal(publicFiles.length, 21);
   assert.ok(!publicFiles.some(name => /backend|server|password|sqlite/.test(name)));
   const app = await mf.dispatchFetch(origin + '/');
   assert.equal(app.status, 200); assert.match(await app.text(), /SunReminder/);
@@ -74,7 +74,7 @@ test('eye-rest, device days, outdoor and CSV agree, including date filtering', a
   assert.equal((await upload(a, 1, [day(2, true), day(0, true, '2026-01-03')])).status, 200);
   assert.equal((await upload(b)).status, 200);
   const cookie = await login(), data = await report(cookie);
-  assert.deepEqual(data.totals, { breakCount: 3, restSeconds: 60, outdoorCheckins: 2, activeDeviceDays: 3, activeCalendarDays: 2, activeDevices: 2 });
+  assert.deepEqual(data.totals, { breakCount: 3, restSeconds: 60, outdoorCheckins: 2, activeDeviceDays: 3, activeCalendarDays: 2, activeDevices: 2, usageSeconds: 0 });
   assert.equal((await report(cookie, '?from=2026-01-03&to=2026-01-03')).totals.outdoorCheckins, 1);
   const csv = await mf.dispatchFetch(origin + '/api/admin/export', { headers: { Authorization: 'Bearer ' + cookie } });
   assert.equal(csv.status, 200); assert.equal(csv.headers.get('Cache-Control'), 'no-store');
@@ -159,3 +159,9 @@ test('racing profile updates cannot restore an older location or withdrawn metad
  await upload(d);const results=await Promise.all([send(3,null),send(2,profile)]);assert.ok(results.every(r=>r.status===200));assert.equal((await report(await login())).participants[0].location,null);
  await Promise.all([send(4,profile),withdraw(d)]);assert.equal((await db.prepare('SELECT COUNT(*) n FROM participant_profiles').first()).n,0);
 });
+
+import {unifiedContract,usageContract} from '../../web/tests/new-features-contract.mjs';
+const newCall=(route,{body,token,headers={}}={})=>mf.dispatchFetch(origin+route,{method:body?'POST':'GET',headers:{Origin:origin,...(body?{'Content-Type':'application/json'}:{}),...(token?{Authorization:'Bearer '+token}:{}),...headers},...(body?{body:JSON.stringify(body)}:{})});
+test('single login routes by role and dashboard transfer is single-use on D1',async()=>{await unifiedContract(newCall,password);});
+test('consented usage totals, date filters, CSV and withdrawal work on D1',async()=>{await usageContract(newCall,await login());assert.equal((await db.prepare('SELECT COUNT(*) n FROM usage_daily').first()).n,0);});
+test('expired dashboard transfer cannot sign in',async()=>{const r=await post('/api/login',{username:'group4',password});const cookie=r.headers.get('set-cookie').split(';')[0];await db.prepare('UPDATE admin_transfers SET expires=?').bind(Date.now()-1).run();assert.equal((await post('/api/admin/claim',{}, {Cookie:cookie})).status,401);});

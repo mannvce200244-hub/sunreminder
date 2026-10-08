@@ -1,10 +1,11 @@
+import { USAGE_CONSENT_VERSION, usageFromPayload, addUsageReport, EXPORT_SQL } from '../web/usage.js';
 import { accountApi } from '../web/accounts-backend.mjs';
 import { PROFILE_CONSENT_VERSION, profileFromPayload, withProfile, PROFILE_CSV_HEADER, profileCsv } from '../web/profile.js';
 import { ensureSchema } from './schema.mjs';
 
 const CONSENT_VERSION = 'group4-stats-v1';
 const encoder = new TextEncoder();
-const allowedAssets = new Set(['index.html','app.js','engine.js','data.js','analytics.js','sharing.js','profile.js','profile-ui.js','user-account.js','admin-session.js','styles.css','sw.js','manifest.webmanifest','icon.svg','icon-192.png','icon-512.png','apple-touch-icon.png','admin.html','admin.js','admin.css']);
+const allowedAssets = new Set(['index.html','app.js','engine.js','data.js','analytics.js','sharing.js','profile.js','profile-ui.js','user-account.js','usage.js','admin-session.js','styles.css','sw.js','manifest.webmanifest','icon.svg','icon-192.png','icon-512.png','apple-touch-icon.png','admin.html','admin.js','admin.css']);
 const failure = (status, message) => Object.assign(new Error(message), { status });
 const hex = bytes => Array.from(new Uint8Array(bytes), b => b.toString(16).padStart(2, '0')).join('');
 const random = () => hex(crypto.getRandomValues(new Uint8Array(32)));
@@ -95,10 +96,11 @@ async function report(db, from, to) {
       FROM participants p LEFT JOIN daily d ON p.id=d.participant_id AND d.day BETWEEN ? AND ?
       LEFT JOIN participant_profiles pr ON pr.participant_id=p.id WHERE p.deleted=0 GROUP BY p.id ORDER BY p.updated_at DESC LIMIT 10000`).bind(from, to),
     db.prepare(`SELECT day,SUM(break_count) breakCount,SUM(outdoor) outdoorCheckins,COUNT(*) activeDevices
-      FROM daily WHERE day BETWEEN ? AND ? GROUP BY day ORDER BY day`).bind(from, to)
+      FROM daily WHERE day BETWEEN ? AND ? GROUP BY day ORDER BY day`).bind(from, to),
+    db.prepare('SELECT participant_id,day,seconds FROM usage_daily WHERE day BETWEEN ? AND ?').bind(from,to)
   ]);
-  return { totals: result[0].results[0], participants: result[1].results.map(withProfile), days: result[2].results,
-    registeredDevices: result[1].results.length, generatedAt: new Date().toISOString(), from, to };
+  return addUsageReport({ totals: result[0].results[0], participants: result[1].results.map(withProfile), days: result[2].results,
+    registeredDevices: result[1].results.length, generatedAt: new Date().toISOString(), from, to },result[3].results);
 }
 async function participant(request, value) {
   const id = value?.participantId, token = request.headers.get('Authorization')?.replace(/^Bearer /, '');
@@ -120,6 +122,7 @@ async function sync(request, env, url, ipKey) {
         ON CONFLICT(id) DO UPDATE SET deleted=1,updated_at=excluded.updated_at WHERE token_hash=excluded.token_hash`).bind(id, tokenHash, CONSENT_VERSION, now, now, id),
       db.prepare(`DELETE FROM daily WHERE participant_id=? AND EXISTS(SELECT 1 FROM participants WHERE id=? AND token_hash=? AND deleted=1)`).bind(id, id, tokenHash),
       db.prepare('DELETE FROM participant_profiles WHERE participant_id=? AND EXISTS(SELECT 1 FROM participants WHERE id=? AND token_hash=? AND deleted=1)').bind(id,id,tokenHash),
+      db.prepare('DELETE FROM usage_daily WHERE participant_id=? AND EXISTS(SELECT 1 FROM participants WHERE id=? AND token_hash=? AND deleted=1)').bind(id,id,tokenHash),
       db.prepare('SELECT token_hash,deleted FROM participants WHERE id=?').bind(id)
     ]);
     const saved = results.at(-1).results[0];
@@ -128,7 +131,7 @@ async function sync(request, env, url, ipKey) {
     return json({ ok: true, deleted: true });
   }
   validateSnapshot(value);
-  const profile=profileFromPayload(value);
+  const profile=profileFromPayload(value),usage=usageFromPayload(value);
   if (previous?.deleted) throw failure(410, 'Thiết bị đã rút chia sẻ. Cần đồng ý lại để tham gia bằng mã mới.');
   const uploadId = random(), days = JSON.stringify(value.days);
   const results = await db.batch([
@@ -147,6 +150,10 @@ async function sync(request, env, url, ipKey) {
     ...(profile===undefined?[]:profile===null?[
       db.prepare('DELETE FROM participant_profiles WHERE participant_id=? AND EXISTS(SELECT 1 FROM participants WHERE id=? AND upload_id=? AND deleted=0)').bind(id,id,uploadId)
     ]:[db.prepare('INSERT INTO participant_profiles(participant_id,profile_json) SELECT ?,? WHERE EXISTS(SELECT 1 FROM participants WHERE id=? AND upload_id=? AND deleted=0) ON CONFLICT(participant_id) DO UPDATE SET profile_json=excluded.profile_json').bind(id,JSON.stringify(profile),id,uploadId)]),
+    ...(usage===undefined?[]:[
+      db.prepare("DELETE FROM usage_daily WHERE participant_id=? AND EXISTS(SELECT 1 FROM participants WHERE id=? AND upload_id=? AND deleted=0) AND day NOT IN (SELECT json_extract(value,'$.day') FROM json_each(?))").bind(id,id,uploadId,JSON.stringify(usage)),
+      db.prepare("INSERT INTO usage_daily(participant_id,day,seconds) SELECT ?,json_extract(value,'$.day'),json_extract(value,'$.seconds') FROM json_each(?) WHERE EXISTS(SELECT 1 FROM participants WHERE id=? AND upload_id=? AND deleted=0) ON CONFLICT(participant_id,day) DO UPDATE SET seconds=excluded.seconds WHERE seconds!=excluded.seconds").bind(id,JSON.stringify(usage),id,uploadId)
+    ]),
     db.prepare('SELECT token_hash,revision,deleted,upload_id,updated_at FROM participants WHERE id=?').bind(id)
   ]);
   const saved = results.at(-1).results[0];
@@ -158,21 +165,26 @@ async function sync(request, env, url, ipKey) {
 async function api(request, env, url) {
   const origin = request.headers.get('Origin');
   if (origin && origin !== url.origin) throw failure(403, 'Nguồn yêu cầu không được phép.');
+  const unified=request.method==='POST'&&url.pathname==='/api/login';
+  let loginValue;
+  if(unified){if(origin!==url.origin)throw failure(403,'Nguồn yêu cầu không được phép.');loginValue=await body(request);if(typeof loginValue?.username==='string')loginValue.username=loginValue.username.trim().toLowerCase();url=new URL(url);url.pathname=loginValue?.username==='group4'?'/api/admin/login':'/api/user/login';}
+  const readInput=()=>unified?Promise.resolve(loginValue):body(request);
+  const transferCookie=(token,age)=>'sun_admin_transfer='+token+'; HttpOnly; SameSite=Strict; Path=/api/admin/claim; Max-Age='+age+(url.protocol==='https:'?'; Secure':'');
   const configured = !!env.DB && typeof env.SUN_ADMIN_PASSWORD === 'string' && env.SUN_ADMIN_PASSWORD.length >= 16 && env.SUN_ADMIN_PASSWORD.length <= 256;
-  if (request.method === 'GET' && url.pathname === '/api/config') return json({ enabled: configured, collector: 'Group 4', consentVersion: CONSENT_VERSION, profileConsentVersion: PROFILE_CONSENT_VERSION });
+  if (request.method === 'GET' && url.pathname === '/api/config') return json({ enabled: configured, collector: 'Group 4', consentVersion: CONSENT_VERSION, profileConsentVersion: PROFILE_CONSENT_VERSION, usageConsentVersion: USAGE_CONSENT_VERSION });
   if (!configured) throw failure(503, 'Group 4 cần cấu hình D1 và Secret SUN_ADMIN_PASSWORD (16–256 ký tự). Đồng hồ vẫn dùng được.');
   await ensureSchema(env.DB);
   const ipKey = await hash((request.headers.get('CF-Connecting-IP') || 'local') + env.SUN_ADMIN_PASSWORD);
   if(url.pathname.startsWith('/api/user/')){
     if(origin!==url.origin)throw failure(403,'Yêu cầu tài khoản phải đến từ SunReminder.');
     await rate(env.DB,'account:global',120,60000);
-    return json(await accountApi({path:url.pathname,method:request.method,authorization:request.headers.get('Authorization'),readBody:()=>body(request),db:env.DB,rate:(key,max,ms,global)=>rate(env.DB,key+(global?'':':'+ipKey),max,ms)}));
+    return json(await accountApi({path:url.pathname,method:request.method,authorization:request.headers.get('Authorization'),readBody:readInput,db:env.DB,rate:(key,max,ms,global)=>rate(env.DB,key+(global?'':':'+ipKey),max,ms)}));
   }
   if (request.method === 'POST' && url.pathname === '/api/admin/login') {
     if (origin !== url.origin) throw failure(403, 'Yêu cầu đăng nhập phải đến từ trang quản trị.');
     await rate(env.DB, 'login:' + ipKey, 10, 900000);
     await rate(env.DB, 'login:global', 100, 60000);
-    const value = await body(request);
+    const value = await readInput();
     if (value?.username !== 'group4' || typeof value.password !== 'string' || value.password.length > 256 || !equal(await hash(value.password), await hash(env.SUN_ADMIN_PASSWORD))) throw failure(401, 'Tên đăng nhập hoặc mật khẩu chưa đúng.');
     const nonce = random(), token = nonce + '.' + await sign('admin-v2:' + nonce, env.SUN_ADMIN_PASSWORD), now = Date.now();
     await env.DB.batch([
@@ -181,7 +193,19 @@ async function api(request, env, url) {
       env.DB.prepare('INSERT INTO admin_sessions(token_hash,expires) SELECT ?,? WHERE (SELECT COUNT(*) FROM admin_sessions)<1000').bind(await hash(token), now + 1800000)
     ]);
     if (!await env.DB.prepare('SELECT 1 FROM admin_sessions WHERE token_hash=?').bind(await hash(token)).first()) throw failure(429, 'Quá nhiều phiên đăng nhập.');
+    if(unified){await env.DB.batch([env.DB.prepare('DELETE FROM admin_transfers WHERE expires<=?').bind(now),env.DB.prepare('INSERT INTO admin_transfers VALUES(?,?)').bind(await hash(token),now+60000)]);return json({ok:true,role:'admin',redirect:'/admin'},200,{'Set-Cookie':transferCookie(token,60)});}
     return json({ ok: true, sessionToken: token, expiresAt: now + 1800000 }, 200, { 'Set-Cookie': cookie('', url, 0) });
+  }
+  if(request.method==='POST'&&url.pathname==='/api/admin/claim'){
+    if(origin!==url.origin)throw failure(403,'Nguồn yêu cầu không được phép.');
+    const token=(request.headers.get('Cookie')||'').split(';').map(s=>s.trim()).find(s=>s.startsWith('sun_admin_transfer='))?.slice(19);
+    if(!token||!/^[a-f0-9]{64}\.[a-f0-9]{64}$/.test(token))throw failure(401,'Vui lòng đăng nhập.');
+    const digest=await hash(token),now=Date.now();
+    const used=await env.DB.prepare('DELETE FROM admin_transfers WHERE token_hash=? AND expires>? RETURNING token_hash').bind(digest,now).first();
+    const session=await env.DB.prepare('SELECT expires FROM admin_sessions WHERE token_hash=?').bind(digest).first();
+    if(!used||!session||session.expires<=now)throw failure(401,'Vui lòng đăng nhập lại.');
+    await admin(new Request(request,{headers:{Authorization:'Bearer '+token}}),env);
+    return json({ok:true,sessionToken:token,expiresAt:session.expires},200,{'Set-Cookie':transferCookie('',0)});
   }
   if (url.pathname.startsWith('/api/admin/')) {
     const sessionHash = await admin(request, env);
@@ -192,8 +216,8 @@ async function api(request, env, url) {
     }
     if (request.method === 'GET' && url.pathname === '/api/admin/stats') return json(await report(env.DB, ...dateRange(url)));
     if (request.method === 'GET' && url.pathname === '/api/admin/export') {
-      const rows = await env.DB.prepare('SELECT d.participant_id,d.day,d.break_count,d.rest_seconds,d.outdoor,pr.profile_json FROM daily d LEFT JOIN participant_profiles pr ON pr.participant_id=d.participant_id WHERE day BETWEEN ? AND ? ORDER BY day DESC,d.participant_id').bind(...dateRange(url)).all();
-      const csv = '\uFEFFParticipantId,Day,EyeRestCheckins,RestSeconds,OutdoorCheckin'+PROFILE_CSV_HEADER+'\r\n' + rows.results.map(r => [r.participant_id,r.day,r.break_count,r.rest_seconds,r.outdoor,...profileCsv(r)].join(',')).join('\r\n');
+      const rows = await env.DB.prepare(EXPORT_SQL).bind(...dateRange(url)).all();
+      const csv = '\uFEFFParticipantId,Day,EyeRestCheckins,RestSeconds,OutdoorCheckin'+PROFILE_CSV_HEADER+',UsageSeconds\r\n' + rows.results.map(r => [r.participant_id,r.day,r.break_count,r.rest_seconds,r.outdoor,...profileCsv(r),r.usage_seconds].join(',')).join('\r\n');
       return new Response(csv, { headers: { 'Content-Type': 'text/csv; charset=utf-8', 'Content-Disposition': 'attachment; filename="Group4-statistics.csv"', 'Cache-Control': 'no-store' } });
     }
   }

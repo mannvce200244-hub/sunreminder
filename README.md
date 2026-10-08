@@ -56,6 +56,8 @@ node server.mjs
 
 SunReminder hỗ trợ thói quen; số liệu thể hiện bộ đếm hoàn thành và check-in tự đánh dấu, không xác minh hành vi thực tế.
 
-### Web/PWA 3.2
+### Web/PWA 3.3
 
 Thêm đăng nhập người dùng tùy chọn, tên hiển thị, tên thiết bị và GPS chỉ gửi sau khi đồng ý. Chế độ khách giữ đầy đủ đồng hồ và lịch sử. Quản trị yêu cầu đăng nhập mỗi lần mở/tải lại, tự khóa sau 10 phút không hoạt động. Xem [hướng dẫn sử dụng](docs/HUONG-DAN.md) và [triển khai Cloudflare](docs/CLOUDFLARE.md). Windows EXE v3 hiện có vẫn tương thích máy chủ; các bổ sung này nằm ở Web/PWA.
+
+Bản 3.3 dùng một nút đăng nhập chung: group4 chuyển thẳng dashboard, người dùng ở lại app. Thêm thống kê thời gian app hiển thị theo thiết bị/ngày, có đồng ý riêng.

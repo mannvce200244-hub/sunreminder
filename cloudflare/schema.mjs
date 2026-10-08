@@ -1,4 +1,5 @@
 // Idempotent first-run schema. This creates empty tables; it never imports local user data.
+import { USAGE_SCHEMA } from '../web/usage.js';
 import { PROFILE_SCHEMA } from '../web/profile.js';
 import { ACCOUNT_SCHEMA } from '../web/accounts-backend.mjs';
 export const schema = [
@@ -13,8 +14,10 @@ export const schema = [
     day TEXT NOT NULL, break_count INTEGER NOT NULL, rest_seconds INTEGER NOT NULL,
     outdoor INTEGER NOT NULL, PRIMARY KEY(participant_id, day))`,
   PROFILE_SCHEMA,
+  USAGE_SCHEMA,
   'CREATE INDEX IF NOT EXISTS daily_day ON daily(day)',
   'CREATE TABLE IF NOT EXISTS admin_sessions (token_hash TEXT PRIMARY KEY, expires INTEGER NOT NULL)',
+  'CREATE TABLE IF NOT EXISTS admin_transfers (token_hash TEXT PRIMARY KEY, expires INTEGER NOT NULL)',
   'CREATE INDEX IF NOT EXISTS sessions_expiry ON admin_sessions(expires)',
   'CREATE TABLE IF NOT EXISTS request_limits (key TEXT PRIMARY KEY, count INTEGER NOT NULL, expires INTEGER NOT NULL)',
   'CREATE INDEX IF NOT EXISTS limits_expiry ON request_limits(expires)'

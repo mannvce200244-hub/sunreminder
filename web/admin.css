@@ -2,3 +2,5 @@
 @media(max-width:800px){.metric-grid{grid-template-columns:1fr 1fr}.admin-shell{padding:0 18px}.admin-heading{align-items:flex-start;flex-direction:column}.admin-header .badge{display:none}.filters{gap:10px}.filters label{width:calc(50% - 5px)}.filters .btn{flex:1;font-size:12px;white-space:nowrap}.admin-main{padding-bottom:0}.login-panel{margin:32px auto}.login-panel h1{font-size:31px}.metric-grid{gap:12px}.metric-grid .card{padding:18px;margin-bottom:4px}.metric-grid strong{font-size:33px}.admin-header .brand small{font-size:7px}.admin-chart{gap:6px}.admin-shell .table-wrap{max-height:600px}}
 
 .device-name{min-width:160px;overflow-wrap:anywhere}.device-name small,.device-location small{display:block;font-size:11px;color:var(--muted);margin-top:6px}.device-location{min-width:210px}.device-location a{display:block;margin-top:8px;font-size:12px}
+
+@media(min-width:1000px){.metric-grid{grid-template-columns:repeat(5,minmax(0,1fr))}}#metric-usage{font-size:25px;letter-spacing:-.5px;line-height:1.5}

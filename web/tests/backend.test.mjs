@@ -23,3 +23,7 @@ test('password guessing is rate limited and unexpected Host is rejected',async t
 
 import {featureContract} from './features-contract.mjs';
 test('optional accounts, consented profiles, removal and legacy data work on SQLite',async t=>{const {call}=await fixture(t);const adminToken=await login(call);await featureContract((route,options={})=>call(route,{...options,headers:{Origin:origin,...options.headers}}),adminToken);});
+
+import {unifiedContract,usageContract} from './new-features-contract.mjs';
+test('single login routes by role and dashboard transfer is single-use on SQLite',async t=>{const{call}=await fixture(t);await unifiedContract((route,options={})=>call(route,{...options,headers:{Origin:origin,...options.headers}}),password);});
+test('consented usage totals, date filters, CSV and withdrawal work on SQLite',async t=>{const{call}=await fixture(t);await usageContract(call,await login(call));});

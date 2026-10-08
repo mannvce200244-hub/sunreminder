@@ -124,9 +124,9 @@ Vào **Cài đặt → Chia sẻ thống kê**, đọc thông tin và tích đ�
 
 
 
-## 9. Tài khoản tùy chọn, tên thiết bị và GPS (Web/PWA 3.2)
+## 9. Tài khoản tùy chọn, tên thiết bị và GPS (Web/PWA 3.3)
 
-- Bấm **Đăng nhập người dùng** trên đầu trang. Chọn **Tạo tài khoản**, điền tên đăng nhập, tên hiển thị, mật khẩu 12–128 ký tự và đồng ý lưu tài khoản. Tên đăng nhập không dấu, gồm 3–32 chữ/số/gạch dưới; không dùng group4 hoặc admin. Không yêu cầu email. Chưa hỗ trợ quên mật khẩu qua email, nên lưu mật khẩu trong trình quản lý mật khẩu của bạn.
+- Bấm **Đăng nhập** trên đầu trang. Chọn **Tạo tài khoản**, điền tên đăng nhập, tên hiển thị, mật khẩu 12–128 ký tự và đồng ý lưu tài khoản. Tên đăng nhập không dấu, gồm 3–32 chữ/số/gạch dưới; không dùng group4 hoặc admin. Không yêu cầu email. Chưa hỗ trợ quên mật khẩu qua email, nên lưu mật khẩu trong trình quản lý mật khẩu của bạn.
 - Muốn dùng ngay: đóng hộp đăng nhập hoặc chọn **Tiếp tục không đăng nhập**. Đồng hồ, lịch sử, check-in, sao lưu và chia sẻ tự nguyện vẫn dùng được.
 - Sau đăng nhập, bấm **Xin chào, …** để đổi tên hoặc đăng xuất. Tài khoản không tự bật chia sẻ, không tự lấy GPS và chưa đồng bộ lịch sử giữa các máy. Đóng/tải lại trang cần đăng nhập lại; phiên người dùng tối đa một giờ.
 - Đặt tên thiết bị: vào **Cài đặt → Thiết bị của bạn**, nhập ví dụ “Laptop của Mẫn”. Trình duyệt không đọc được tên máy tính thực.
@@ -134,6 +134,16 @@ Vào **Cài đặt → Chia sẻ thống kê**, đọc thông tin và tích đ�
 - Bật chia sẻ thống kê ở phía trên, đánh dấu đồng ý chia sẻ thông tin rồi bấm **Lưu & gửi thông tin**. Tên tài khoản đang đăng nhập (nếu có) được kèm ở lần lưu này; đăng nhập/đổi tên riêng không tự sửa thông tin trên dashboard.
 - Bỏ GPS: **Bỏ vị trí khỏi bản nháp → Lưu & gửi thông tin**. Bỏ cả tên/GPS: bỏ dấu đồng ý riêng rồi lưu. Giữ bật chia sẻ tới khi thông báo gửi thành công. Khi offline, thay đổi chờ gửi lại.
 - Muốn ngừng và xóa toàn bộ thống kê, tên/vị trí đã gửi, chọn **Xóa thống kê đã gửi**. Lịch sử tại máy vẫn giữ. Thao tác này không xóa tài khoản đăng nhập.
-- Bấm **Đăng nhập admin** để vào trang quản trị Group 4. Mỗi lần mở/tải lại trang phải đăng nhập; tự khóa sau 10 phút không thao tác và hết hạn sau tối đa 30 phút.
+- Bấm **Đăng nhập** trên app, nhập tài khoản **group4** và mật khẩu quản trị: app chuyển thẳng vào dashboard. Tài khoản người dùng cũng dùng nút Đăng nhập này và ở lại app. Mỗi lần mở/tải lại trang phải đăng nhập; tự khóa sau 10 phút không thao tác và hết hạn sau tối đa 30 phút.
 
 Tên là do người dùng tự khai. GPS có thể gần đúng, đặc biệt trên máy tính; không theo dõi liên tục. Cơ chế quyền dựa trên [Geolocation của trình duyệt](https://developer.mozilla.org/en-US/docs/Web/API/Geolocation/getCurrentPosition). Các tính năng mới ở bản Web/PWA trên Windows, macOS và điện thoại; bản Windows EXE v3 cũ vẫn gửi thống kê theo cách cũ.
+
+## 10. Chia sẻ thời gian sử dụng app
+
+Vào **Cài đặt**, bật chia sẻ thống kê rồi tích **Tôi đồng ý chia sẻ thời gian sử dụng app với Group 4**. Tùy chọn mới mặc định tắt, kể cả với người đã chia sẻ thống kê trước đây. Chỉ ghi từ lúc đồng ý; không ước lượng ngược lịch sử cũ.
+
+App cộng số giây theo ngày khi trang đang hiển thị và cửa sổ này giữ quyền chạy app. Chuyển tab, thu nhỏ, đóng app, khoảng ngủ máy hoặc đồng hồ hệ thống nhảy sẽ không được tính. Đây là thời gian app hiển thị, không chứng minh người dùng liên tục tương tác. Không thu nội dung màn hình hay lịch sử thao tác. Việc ghi thời gian không tạo check-in và không đổi cách tính ngày hoạt động cũ.
+
+Dữ liệu lưu trên thiết bị khoảng mỗi 5 giây, gửi cùng thống kê khi có mạng khoảng mỗi 30 giây; có thể thiếu vài giây khi đóng đột ngột. Tắt lựa chọn để ngừng ghi mới. **Xóa thống kê đã gửi** xóa cả thời gian trên máy chủ và ngừng chia sẻ; lịch sử nghỉ mắt tại máy vẫn giữ.
+
+Dashboard có **Thời gian sử dụng app**, cột thời gian từng thiết bị và bảng theo ngày; tất cả theo khoảng ngày đang chọn. CSV thêm cột UsageSeconds, bao gồm ngày có thời gian sử dụng dù chưa check-in. Có thể bấm **Xem thống kê** để tải số liệu mới nhất.

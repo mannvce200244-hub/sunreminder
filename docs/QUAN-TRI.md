@@ -83,3 +83,9 @@ Bản này dùng SQLite cho nhóm nhỏ và một server. Không triển khai v�
 - **429:** đang bị giới hạn số yêu cầu/đăng nhập, chờ rồi thử lại.
 - **Mất thống kê sau triển khai:** kiểm tra DATA_DIR nằm trong Persistent Disk, không phải ổ tạm của container.
 - **Quản trị trống:** kiểm tra khoảng ngày, người dùng đã bật chia sẻ và app báo gửi thành công. Dữ liệu localhost không tự chuyển lên cloud.
+
+## Đăng nhập chung và thời gian sử dụng (Web/PWA 3.3)
+
+Trang chính chỉ có nút **Đăng nhập**. Tài khoản **group4** được máy chủ xác thực rồi chuyển vào dashboard; tài khoản người dùng vào app. Không chọn vai trò ở giao diện. Chuyển trang dùng cookie HttpOnly giới hạn 60 giây, được đổi đúng một lần lấy phiên trong bộ nhớ. Đây không phải cookie nhớ đăng nhập: tải lại dashboard sau khi đã nhận phiên cần đăng nhập lại. Đường dẫn /admin vẫn có biểu mẫu khi mở trực tiếp.
+
+Thời gian sử dụng là số giây app hiển thị, chỉ ghi sau khi người dùng đồng ý riêng. Xem tổng thời gian, từng thiết bị, theo ngày hoặc CSV trong cùng khoảng ngày. Số ngày có check-in vẫn giữ nghĩa cũ; mở app không tự tạo check-in. Thời gian cộng theo thiết bị, chưa hợp nhất một người dùng nhiều máy.

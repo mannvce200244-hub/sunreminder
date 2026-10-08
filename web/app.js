@@ -1,3 +1,4 @@
+import { UsageTracker, formatUsage } from './usage.js';
 import { mountAccount } from './user-account.js';
 import { mountProfile } from './profile-ui.js';
 import { ReminderEngine } from './engine.js';
@@ -128,18 +129,27 @@ function sharingStatus(client){
   $('share-enable').disabled=client.blocked||s.enabled||s.pendingDelete||!$('share-consent').checked;
   $('share-stop').disabled=!s.enabled;$('share-now').disabled=client.busy||!s.enabled;$('share-delete').disabled=!s.participantId||s.pendingDelete;
   $('share-consent').disabled=s.enabled||s.pendingDelete;
+  $('usage-consent').checked=s.usageEnabled;$('usage-consent').disabled=client.blocked||s.pendingDelete||(!s.enabled&&!s.usageEnabled);
+  $('usage-local').textContent='Đã ghi trên thiết bị: '+formatUsage((s.usageDays||[]).reduce((sum,d)=>sum+d.seconds,0))+'. '+(s.enabled&&s.usageEnabled?'Đang ghi khi app hiển thị.':'Đang tắt ghi thời gian.');
 }
 // Credentials are separate from history/backup JSON and never imported from another device.
 const safeStorage={getItem:key=>localStorage.getItem(key),setItem:(key,value)=>localStorage.setItem(key,value)};
 sharing=new SharingClient({storage:safeStorage,getData:()=>data,canSend:()=>ownsApp&&!storageBlocked,onChange:sharingStatus});
 $('share-consent').checked=sharing.state.enabled;
 $('share-consent').addEventListener('change',()=>sharingStatus(sharing));
-$('share-enable').addEventListener('click',async()=>{if(!$('share-consent').checked)return;try{const r=await fetch('/api/config',{cache:'no-store',signal:AbortSignal.timeout(8000)});if(!r.ok)throw Error();const config=await r.json();if(!config.enabled||config.consentVersion!=='group4-stats-v1')throw Error();sharing.enable();}catch{toast('Máy chủ Group 4 chưa sẵn sàng. Chưa bật chia sẻ; bạn vẫn dùng app bình thường.');}});
-$('share-stop').addEventListener('click',()=>{sharing.stop();$('share-consent').checked=false;sharingStatus(sharing);});
+$('share-enable').addEventListener('click',async()=>{if(!$('share-consent').checked)return;try{const r=await fetch('/api/config',{cache:'no-store',signal:AbortSignal.timeout(8000)});if(!r.ok)throw Error();const config=await r.json();if(!config.enabled||config.consentVersion!=='group4-stats-v1')throw Error();sharing.enable();usageTracker.sample(usageEligible());}catch{toast('Máy chủ Group 4 chưa sẵn sàng. Chưa bật chia sẻ; bạn vẫn dùng app bình thường.');}});
+$('share-stop').addEventListener('click',()=>{usageTracker.sample(false);sharing.stop();$('share-consent').checked=false;sharingStatus(sharing);});
 $('share-now').addEventListener('click',()=>void sharing.flush(true));
-$('share-delete').addEventListener('click',()=>confirmActionDialog('Xóa thống kê đã gửi cho Group 4?','App sẽ ngừng chia sẻ và xóa số liệu của mã thiết bị này trên máy chủ. Lịch sử trong app vẫn được giữ. Khi mất mạng, yêu cầu xóa sẽ chờ gửi lại.',()=>{sharing.withdraw();$('share-consent').checked=false;sharingStatus(sharing);},'Ngừng & xóa trên máy chủ'));
+$('share-delete').addEventListener('click',()=>confirmActionDialog('Xóa thống kê đã gửi cho Group 4?','App sẽ ngừng chia sẻ và xóa số liệu của mã thiết bị này trên máy chủ. Lịch sử trong app vẫn được giữ. Khi mất mạng, yêu cầu xóa sẽ chờ gửi lại.',()=>{usageTracker.sample(false);sharing.withdraw();$('share-consent').checked=false;sharingStatus(sharing);},'Ngừng & xóa trên máy chủ'));
 window.addEventListener('online',()=>void sharing.flush());setInterval(()=>void sharing.flush(),30000);
 sharingStatus(sharing);
+const usageEligible=()=>ownsApp&&!storageBlocked&&!document.hidden&&sharing.state.enabled&&sharing.state.usageEnabled&&!sharing.state.pendingDelete;
+const usageTracker=new UsageTracker({onSeconds:(day,seconds)=>sharing.addUsage(day,seconds)});
+setInterval(()=>{usageTracker.sample(usageEligible());$('usage-local').textContent='Đã ghi trên thiết bị: '+formatUsage(sharing.state.usageDays.reduce((sum,d)=>sum+d.seconds,0))+'. '+(usageEligible()?'Đang ghi khi app hiển thị.':'Đang tắt ghi thời gian.');},5000);
+document.addEventListener('visibilitychange',()=>{usageTracker.sample(usageEligible());if(document.hidden)void sharing.flush();});
+window.addEventListener('pagehide',()=>{usageTracker.sample(false);void sharing.flush();});
+window.addEventListener('pageshow',()=>usageTracker.sample(usageEligible()));
+$('usage-consent').addEventListener('change',()=>{const enabled=$('usage-consent').checked;usageTracker.sample(false);if(!sharing.setUsageEnabled(enabled))toast('Bật chia sẻ thống kê trước khi chia sẻ thời gian sử dụng.');usageTracker.sample(usageEligible());sharingStatus(sharing);});
 const account=mountAccount();
 mountProfile(sharing,account.getUser);
 fillSettings();notificationStatus();renderStats();renderHistory();renderClock();navigate();connection();

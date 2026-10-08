@@ -1,12 +1,13 @@
+import { USAGE_CONSENT_VERSION, usageFromPayload } from './usage.js';
 import { PROFILE_CONSENT_VERSION, profileFromPayload } from './profile.js';
 import { CONSENT_VERSION, dailyStats } from './analytics.js';
 export const SHARE_KEY='sunreminder.sharing.v1';
-const empty=()=>({enabled:false,pendingDelete:false,participantId:null,token:null,revision:0,lastSync:null,profileConfigured:false,profile:null});
+const empty=()=>({enabled:false,pendingDelete:false,participantId:null,token:null,revision:0,lastSync:null,profileConfigured:false,profile:null,usageEnabled:false,usageConfigured:false,usageDays:[]});
 const randomHex=length=>Array.from(crypto.getRandomValues(new Uint8Array(length)),b=>b.toString(16).padStart(2,'0')).join('');
 export class SharingClient {
   constructor({storage,getData,request=(...args)=>fetch(...args),onChange=()=>{},canSend=()=>true}){
     Object.assign(this,{storage,getData,request,onChange,canSend});this.state=empty();this.busy=false;this.dirty=true;this.message='Chưa chia sẻ thống kê.';
-    try{const raw=storage.getItem(SHARE_KEY);if(raw){const s=JSON.parse(raw);if(typeof s.enabled!=='boolean'||typeof s.pendingDelete!=='boolean'||!Number.isSafeInteger(s.revision)||s.revision<0||(s.participantId!==null&&!/^p_[a-f0-9]{32}$/.test(s.participantId))||(s.token!==null&&!/^[a-f0-9]{64}$/.test(s.token))||((s.enabled||s.pendingDelete)&&(!s.token||!s.participantId)))throw Error();if(s.profileConfigured)profileFromPayload({profile:s.profile,profileConsentVersion:PROFILE_CONSENT_VERSION});this.state={...empty(),...s};}}
+    try{const raw=storage.getItem(SHARE_KEY);if(raw){const s=JSON.parse(raw);if(typeof s.enabled!=='boolean'||typeof s.pendingDelete!=='boolean'||!Number.isSafeInteger(s.revision)||s.revision<0||(s.participantId!==null&&!/^p_[a-f0-9]{32}$/.test(s.participantId))||(s.token!==null&&!/^[a-f0-9]{64}$/.test(s.token))||((s.enabled||s.pendingDelete)&&(!s.token||!s.participantId)))throw Error();if(s.profileConfigured)profileFromPayload({profile:s.profile,profileConsentVersion:PROFILE_CONSENT_VERSION});if(s.usageConfigured)usageFromPayload({usageDays:s.usageDays,usageConsentVersion:USAGE_CONSENT_VERSION});this.state={...empty(),...s};}}
     catch{this.blocked=true;this.message='Không đọc được tùy chọn chia sẻ. Chưa gửi dữ liệu; hãy kiểm tra bộ nhớ trình duyệt.';}
   }
   save(next){try{this.storage.setItem(SHARE_KEY,JSON.stringify(next));this.state=next;return true;}catch{this.message='Không lưu được lựa chọn chia sẻ. Chưa bật gửi tự động.';this.onChange(this);return false;}}
@@ -16,6 +17,8 @@ export class SharingClient {
   }
   withdraw(){if(!this.state.participantId)return;const s={...this.state,enabled:false,pendingDelete:true};if(!this.save(s))return;this.controller?.abort();this.message='Đã ngừng gửi. Đang chờ máy chủ xác nhận xóa…';this.onChange(this);void this.flush();}
   setProfile(profile){if(this.blocked||!this.state.enabled||this.state.pendingDelete)return false;const clean=profileFromPayload({profile,profileConsentVersion:PROFILE_CONSENT_VERSION});if(!this.save({...this.state,profile:clean,profileConfigured:true}))return false;this.changed();return true;}
+  setUsageEnabled(enabled){if(this.blocked||this.state.pendingDelete||(enabled&&!this.state.enabled))return false;if(!this.save({...this.state,usageEnabled:enabled,usageConfigured:true}))return false;this.onChange(this);return true;}
+  addUsage(day,seconds){if(this.blocked||!this.state.enabled||!this.state.usageEnabled||this.state.pendingDelete)return;const days=this.state.usageDays.map(d=>({...d}));let row=days.find(d=>d.day===day);if(!row){if(days.length>=4000)return;row={day,seconds:0};days.push(row);}row.seconds=Math.min(86400,row.seconds+seconds);if(this.save({...this.state,usageDays:days}))this.dirty=true;}
   changed(){this.dirty=true;void this.flush();}
   async flush(force=false){
     if(this.busy||this.blocked||!this.canSend()||(!this.state.pendingDelete&&(!this.state.enabled||(!this.dirty&&!force))))return;
@@ -23,7 +26,7 @@ export class SharingClient {
     const removing=this.state.pendingDelete;let sent=false;
     try{
       let payload={participantId:this.state.participantId};
-      if(!removing){const next={...this.state,revision:this.state.revision+1};if(!this.save(next))return;payload={...payload,revision:next.revision,source:'web',consentVersion:CONSENT_VERSION,days:dailyStats(this.getData()),...(next.profileConfigured?{profile:next.profile,profileConsentVersion:PROFILE_CONSENT_VERSION}:{})};this.dirty=false;}
+      if(!removing){const next={...this.state,revision:this.state.revision+1};if(!this.save(next))return;payload={...payload,revision:next.revision,source:'web',consentVersion:CONSENT_VERSION,days:dailyStats(this.getData()),...(next.usageConfigured?{usageDays:next.usageDays,usageConsentVersion:USAGE_CONSENT_VERSION}:{}),...(next.profileConfigured?{profile:next.profile,profileConsentVersion:PROFILE_CONSENT_VERSION}:{})};this.dirty=false;}
       this.message=removing?'Đang xóa thống kê đã gửi…':'Đang gửi thống kê…';this.onChange(this);
       const response=await this.request(removing?'/api/withdraw':'/api/sync',{method:'POST',headers:{'Content-Type':'application/json',Authorization:`Bearer ${this.state.token}`},body:JSON.stringify(payload),signal:this.controller.signal,redirect:'error'});
       const result=await response.json();if(!response.ok)throw new Error(result.error||'Chưa gửi được thống kê.');
