@@ -1,11 +1,12 @@
+import { PROFILE_CONSENT_VERSION, profileFromPayload } from './profile.js';
 import { CONSENT_VERSION, dailyStats } from './analytics.js';
 export const SHARE_KEY='sunreminder.sharing.v1';
-const empty=()=>({enabled:false,pendingDelete:false,participantId:null,token:null,revision:0,lastSync:null});
+const empty=()=>({enabled:false,pendingDelete:false,participantId:null,token:null,revision:0,lastSync:null,profileConfigured:false,profile:null});
 const randomHex=length=>Array.from(crypto.getRandomValues(new Uint8Array(length)),b=>b.toString(16).padStart(2,'0')).join('');
 export class SharingClient {
   constructor({storage,getData,request=(...args)=>fetch(...args),onChange=()=>{},canSend=()=>true}){
     Object.assign(this,{storage,getData,request,onChange,canSend});this.state=empty();this.busy=false;this.dirty=true;this.message='Chưa chia sẻ thống kê.';
-    try{const raw=storage.getItem(SHARE_KEY);if(raw){const s=JSON.parse(raw);if(typeof s.enabled!=='boolean'||typeof s.pendingDelete!=='boolean'||!Number.isSafeInteger(s.revision)||s.revision<0||(s.participantId!==null&&!/^p_[a-f0-9]{32}$/.test(s.participantId))||(s.token!==null&&!/^[a-f0-9]{64}$/.test(s.token))||((s.enabled||s.pendingDelete)&&(!s.token||!s.participantId)))throw Error();this.state=s;}}
+    try{const raw=storage.getItem(SHARE_KEY);if(raw){const s=JSON.parse(raw);if(typeof s.enabled!=='boolean'||typeof s.pendingDelete!=='boolean'||!Number.isSafeInteger(s.revision)||s.revision<0||(s.participantId!==null&&!/^p_[a-f0-9]{32}$/.test(s.participantId))||(s.token!==null&&!/^[a-f0-9]{64}$/.test(s.token))||((s.enabled||s.pendingDelete)&&(!s.token||!s.participantId)))throw Error();if(s.profileConfigured)profileFromPayload({profile:s.profile,profileConsentVersion:PROFILE_CONSENT_VERSION});this.state={...empty(),...s};}}
     catch{this.blocked=true;this.message='Không đọc được tùy chọn chia sẻ. Chưa gửi dữ liệu; hãy kiểm tra bộ nhớ trình duyệt.';}
   }
   save(next){try{this.storage.setItem(SHARE_KEY,JSON.stringify(next));this.state=next;return true;}catch{this.message='Không lưu được lựa chọn chia sẻ. Chưa bật gửi tự động.';this.onChange(this);return false;}}
@@ -14,6 +15,7 @@ export class SharingClient {
     this.state={...this.state,enabled:false};const saved=this.save(this.state);this.controller?.abort();this.message=saved?'Đã ngừng gửi mới. Thống kê đã gửi vẫn ở Group 4; bạn có thể xóa bên dưới.':'Đã ngừng gửi trong phiên này nhưng chưa lưu được lựa chọn. Hãy thử lại trước khi đóng app.';this.onChange(this);
   }
   withdraw(){if(!this.state.participantId)return;const s={...this.state,enabled:false,pendingDelete:true};if(!this.save(s))return;this.controller?.abort();this.message='Đã ngừng gửi. Đang chờ máy chủ xác nhận xóa…';this.onChange(this);void this.flush();}
+  setProfile(profile){if(this.blocked||!this.state.enabled||this.state.pendingDelete)return false;const clean=profileFromPayload({profile,profileConsentVersion:PROFILE_CONSENT_VERSION});if(!this.save({...this.state,profile:clean,profileConfigured:true}))return false;this.changed();return true;}
   changed(){this.dirty=true;void this.flush();}
   async flush(force=false){
     if(this.busy||this.blocked||!this.canSend()||(!this.state.pendingDelete&&(!this.state.enabled||(!this.dirty&&!force))))return;
@@ -21,7 +23,7 @@ export class SharingClient {
     const removing=this.state.pendingDelete;let sent=false;
     try{
       let payload={participantId:this.state.participantId};
-      if(!removing){const next={...this.state,revision:this.state.revision+1};if(!this.save(next))return;payload={...payload,revision:next.revision,source:'web',consentVersion:CONSENT_VERSION,days:dailyStats(this.getData())};this.dirty=false;}
+      if(!removing){const next={...this.state,revision:this.state.revision+1};if(!this.save(next))return;payload={...payload,revision:next.revision,source:'web',consentVersion:CONSENT_VERSION,days:dailyStats(this.getData()),...(next.profileConfigured?{profile:next.profile,profileConsentVersion:PROFILE_CONSENT_VERSION}:{})};this.dirty=false;}
       this.message=removing?'Đang xóa thống kê đã gửi…':'Đang gửi thống kê…';this.onChange(this);
       const response=await this.request(removing?'/api/withdraw':'/api/sync',{method:'POST',headers:{'Content-Type':'application/json',Authorization:`Bearer ${this.state.token}`},body:JSON.stringify(payload),signal:this.controller.signal,redirect:'error'});
       const result=await response.json();if(!response.ok)throw new Error(result.error||'Chưa gửi được thống kê.');

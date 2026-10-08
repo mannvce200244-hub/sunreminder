@@ -11,7 +11,7 @@ node server.mjs
 
 Giữ cửa sổ server mở. App: `http://localhost:4173`. Quản trị: `http://localhost:4173/admin`. Tên đăng nhập **group4**; mật khẩu ngẫu nhiên riêng của máy nằm trong `web/server-data/ADMIN-LOGIN.txt`. Chỉ chia sẻ mật khẩu trong nội bộ bốn thành viên. Không gửi thư mục `server-data` cho người dùng hay đẩy lên GitHub.
 
-Tài khoản đã có sẽ được giữ khi chạy lại script. Muốn tạo mật khẩu mới: dừng server, chạy `node setup-admin.mjs --reset`, mở lại server; phiên đăng nhập cũ hết hiệu lực. Nếu đang dùng biến `SUN_ADMIN_PASSWORD`, hãy đổi biến đó trên dịch vụ hosting rồi khởi động lại; biến này ưu tiên hơn file cục bộ. Phiên quản trị hết hạn sau 8 giờ, hoặc khi đăng xuất/server khởi động lại. Có giới hạn lần đăng nhập sai.
+Tài khoản đã có sẽ được giữ khi chạy lại script. Muốn tạo mật khẩu mới: dừng server, chạy `node setup-admin.mjs --reset`, mở lại server; phiên đăng nhập cũ hết hiệu lực. Nếu đang dùng biến `SUN_ADMIN_PASSWORD`, hãy đổi biến đó trên dịch vụ hosting rồi khởi động lại; biến này ưu tiên hơn file cục bộ. Phiên quản trị chỉ giữ trong bộ nhớ của trang: tải lại, mở lại hoặc rời trang cần đăng nhập lại. Tự khóa sau 10 phút không thao tác; máy chủ giới hạn mỗi phiên tối đa 30 phút. Cookie cũ không còn được dùng để đăng nhập. Có giới hạn lần đăng nhập sai.
 
 `localhost` chỉ dùng trên máy đang chạy server. Điện thoại hoặc máy người khác cần địa chỉ HTTPS công khai. Không cần mua tên miền riêng để bắt đầu.
 
@@ -23,14 +23,14 @@ Khi đồng hồ nghỉ đếm hết, app ghi check-in nghỉ mắt và gửi b�
 
 - Chia sẻ mặc định tắt và không bắt buộc để dùng đồng hồ.
 - Gửi toàn bộ lịch sử hiện tại dạng tổng hợp theo ngày: ngày, số lần nghỉ, tổng giây nghỉ, có/không check-in ngoài trời. Kèm mã thiết bị ngẫu nhiên, loại app và phiên bản đồng ý.
-- Máy chủ lưu thời điểm đồng ý/cập nhật để quản lý việc nhận dữ liệu. App không gửi tên/email, ảnh, vị trí GPS hoặc thời điểm từng lần nghỉ. Nhà cung cấp hosting có thể có nhật ký truy cập riêng.
+- Máy chủ lưu thời điểm đồng ý/cập nhật để quản lý việc nhận dữ liệu. App không gửi email, ảnh hoặc thời điểm từng lần nghỉ. Web/PWA có thể gửi thêm tên hiển thị, tên thiết bị và một vị trí GPS khi người dùng đồng ý riêng và bấm Lưu & gửi thông tin. Vị trí không tự cập nhật, không xác minh check-in; có sai số. Nhà cung cấp hosting có thể có nhật ký truy cập riêng.
 - **Ngừng chia sẻ** dừng lần gửi mới, giữ số liệu đã gửi. **Xóa thống kê đã gửi** yêu cầu máy chủ xóa số liệu của mã thiết bị đó, giữ lịch sử trên máy. Khi offline, yêu cầu xóa chờ đến lúc app có mạng. Máy chủ giữ mã thu hồi tối thiểu để chặn gói gửi trễ khôi phục dữ liệu.
 - Nhập/xóa lịch sử khi còn chia sẻ sẽ cập nhật lại bản tổng hợp trên server. Xóa dữ liệu trình duyệt trước khi thu hồi có thể làm mất khóa để yêu cầu xóa; nên thu hồi trước.
 - Không có thời hạn tự xóa hiện tại: thống kê được giữ tới khi người dùng thu hồi hoặc nhóm xử lý dữ liệu máy chủ. Bản sao lưu của nhóm cần được quản lý/xóa tương ứng.
 
 ## 3. Đọc trang quản trị
 
-Chọn khoảng ngày rồi bấm xem, hoặc dùng 7 ngày / 7 tuần. Danh sách tìm theo mã thiết bị, CSV xuất cùng khoảng ngày.
+Chọn khoảng ngày rồi bấm xem, hoặc dùng 7 ngày / 7 tuần. Danh sách tìm theo tên hiển thị, tên thiết bị hoặc mã đối chiếu; CSV xuất cùng khoảng ngày, kèm thông tin tên/vị trí được chia sẻ gần nhất. Tọa độ không đại diện vị trí tại từng check-in. Bấm Mở Google Maps sẽ gửi tọa độ cho Google.
 
 | Chỉ số | Ý nghĩa |
 |---|---|
@@ -40,7 +40,7 @@ Chọn khoảng ngày rồi bấm xem, hoặc dùng 7 ngày / 7 tuần. Danh sá
 | Thiết bị hoạt động | Mã thiết bị có hoạt động trong khoảng chọn |
 | Ngày lịch có hoạt động | Số ngày khác nhau có hoạt động trong toàn nhóm |
 
-Ngày được tính theo giờ địa phương tại thiết bị. Không suy ra số người duy nhất, không dùng số liệu như bằng chứng người dùng thực sự nghỉ mắt/ra ngoài. Cùng lịch sử nhập trên hai máy rồi cùng chia sẻ có thể được tính ở cả hai thiết bị. Không có tài khoản người tham gia để hợp nhất nhiều máy.
+Ngày được tính theo giờ địa phương tại thiết bị. Không suy ra số người duy nhất, không dùng số liệu như bằng chứng người dùng thực sự nghỉ mắt/ra ngoài. Cùng lịch sử nhập trên hai máy rồi cùng chia sẻ có thể được tính ở cả hai thiết bị. Tài khoản người dùng là tùy chọn để lưu tên hiển thị; hiện chưa hợp nhất lịch sử hay số liệu nhiều máy.
 
 ## 4. Đưa lên Render: một máy chủ có ổ lưu trữ
 

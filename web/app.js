@@ -1,3 +1,5 @@
+import { mountAccount } from './user-account.js';
+import { mountProfile } from './profile-ui.js';
 import { ReminderEngine } from './engine.js';
 import { STORAGE_KEY, defaults, dayKey, validateData, mergeData, csv } from './data.js';
 import { SharingClient } from './sharing.js';
@@ -122,7 +124,7 @@ if(navigator.locks){navigator.locks.request('sunreminder-active-window',{ifAvail
 else{ownsApp=true;storageWarning('Trình duyệt này không hỗ trợ khóa nhiều cửa sổ. Chỉ mở một cửa sổ SunReminder để tránh ghi đè lịch sử.');window.addEventListener('storage',e=>{if(e.key===STORAGE_KEY){ownsApp=false;otherWindow();}});}
 function sharingStatus(client){
   const s=client.state;$('sharing-status').textContent=client.message+(s.lastSync?' Lần gửi thành công: '+new Date(s.lastSync).toLocaleString('vi-VN')+'.':'');
-  $('sharing-id').textContent=s.participantId?'Mã thiết bị của bạn: '+s.participantId:'Chưa có mã thiết bị gửi thống kê.';
+  $('sharing-id').textContent=s.participantId?(s.profile?.deviceName?'Tên đã lưu: '+s.profile.deviceName+' · ':'')+'Mã đối chiếu: '+s.participantId.slice(-8):'Chưa gửi thống kê.';
   $('share-enable').disabled=client.blocked||s.enabled||s.pendingDelete||!$('share-consent').checked;
   $('share-stop').disabled=!s.enabled;$('share-now').disabled=client.busy||!s.enabled;$('share-delete').disabled=!s.participantId||s.pendingDelete;
   $('share-consent').disabled=s.enabled||s.pendingDelete;
@@ -138,4 +140,6 @@ $('share-now').addEventListener('click',()=>void sharing.flush(true));
 $('share-delete').addEventListener('click',()=>confirmActionDialog('Xóa thống kê đã gửi cho Group 4?','App sẽ ngừng chia sẻ và xóa số liệu của mã thiết bị này trên máy chủ. Lịch sử trong app vẫn được giữ. Khi mất mạng, yêu cầu xóa sẽ chờ gửi lại.',()=>{sharing.withdraw();$('share-consent').checked=false;sharingStatus(sharing);},'Ngừng & xóa trên máy chủ'));
 window.addEventListener('online',()=>void sharing.flush());setInterval(()=>void sharing.flush(),30000);
 sharingStatus(sharing);
+const account=mountAccount();
+mountProfile(sharing,account.getUser);
 fillSettings();notificationStatus();renderStats();renderHistory();renderClock();navigate();connection();

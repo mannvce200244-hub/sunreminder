@@ -9,7 +9,7 @@ const password = 'SunReminder-local-test-only-2026';
 const origin = 'https://sunreminder.test';
 let mf, db;
 before(async () => {
-  mf = new Miniflare({ cf: false, workers: [{ name: 'sunreminder', modules: true, scriptPath: fileURLToPath(new URL('../worker.mjs', import.meta.url)),
+  mf = new Miniflare({ cf: false, workers: [{ name: 'sunreminder', modules: true, modulesRules: [{type:'ESModule',include:['**/*.js'],fallthrough:true}], scriptPath: fileURLToPath(new URL('../worker.mjs', import.meta.url)),
     compatibilityDate: '2026-08-01', d1Databases: { DB: 'test-statistics' }, bindings: { SUN_ADMIN_PASSWORD: password },
     serviceBindings: { ASSETS: async request => {
       try { return new Response(await readFile(new URL('../public' + new URL(request.url).pathname, import.meta.url))); }
@@ -20,7 +20,7 @@ before(async () => {
   db = await mf.getD1Database('DB');
 });
 after(async () => { await mf?.dispose(); });
-beforeEach(async () => { await db.batch(['daily','participants','admin_sessions','request_limits'].map(table => db.prepare('DELETE FROM ' + table))); });
+beforeEach(async () => { await db.batch(['participant_profiles','daily','participants','admin_sessions','user_sessions','user_accounts','request_limits'].map(table => db.prepare('DELETE FROM ' + table))); });
 const device = () => ({ id: 'p_' + randomBytes(16).toString('hex'), token: randomBytes(32).toString('hex') });
 const day = (count = 1, outdoor = false, date = '2026-01-02') => ({ day: date, breakCount: count, restSeconds: count * 20, outdoor });
 function post(path, data, headers = {}) {
@@ -33,17 +33,17 @@ async function login() {
   assert.equal(response.status, 200, await response.clone().text());
   assert.match(response.headers.get('Set-Cookie'), /HttpOnly; SameSite=Strict; Path=\/api\/admin/);
   assert.match(response.headers.get('Set-Cookie'), /Secure/);
-  return response.headers.get('Set-Cookie').split(';')[0];
+  assert.match(response.headers.get('Set-Cookie'),/Max-Age=0/);return (await response.json()).sessionToken;
 }
 async function report(cookie, range = '') {
-  const response = await mf.dispatchFetch(origin + '/api/admin/stats' + range, { headers: { Cookie: cookie } });
+  const response = await mf.dispatchFetch(origin + '/api/admin/stats' + range, { headers: { Authorization: 'Bearer ' + cookie } });
   assert.equal(response.status, 200, await response.clone().text());
   return response.json();
 }
 
 test('static app and admin are served; generated package excludes private/server files', async () => {
   const publicFiles = await readdir(new URL('../public/', import.meta.url));
-  assert.equal(publicFiles.length, 16);
+  assert.equal(publicFiles.length, 20);
   assert.ok(!publicFiles.some(name => /backend|server|password|sqlite/.test(name)));
   const app = await mf.dispatchFetch(origin + '/');
   assert.equal(app.status, 200); assert.match(await app.text(), /SunReminder/);
@@ -63,10 +63,10 @@ test('admin requires same-origin login; logout and secret rotation invalidate se
   assert.equal((await post('/api/admin/login', { username: 'group4', password: 'incorrect' })).status, 401);
   const cookie = await login();
   assert.equal((await report(cookie)).totals.breakCount, 0);
-  const changedSecret = await worker.fetch(new Request(origin + '/api/admin/stats', { headers: { Cookie: cookie } }), { DB: db, SUN_ADMIN_PASSWORD: 'Different-local-test-password-2026' });
+  const changedSecret = await worker.fetch(new Request(origin + '/api/admin/stats', { headers: { Authorization: 'Bearer ' + cookie } }), { DB: db, SUN_ADMIN_PASSWORD: 'Different-local-test-password-2026' });
   assert.equal(changedSecret.status, 401);
-  assert.equal((await post('/api/admin/logout', {}, { Cookie: cookie })).status, 200);
-  assert.equal((await mf.dispatchFetch(origin + '/api/admin/stats', { headers: { Cookie: cookie } })).status, 401);
+  assert.equal((await post('/api/admin/logout', {}, { Authorization: 'Bearer ' + cookie })).status, 200);
+  assert.equal((await mf.dispatchFetch(origin + '/api/admin/stats', { headers: { Authorization: 'Bearer ' + cookie } })).status, 401);
 });
 
 test('eye-rest, device days, outdoor and CSV agree, including date filtering', async () => {
@@ -76,10 +76,10 @@ test('eye-rest, device days, outdoor and CSV agree, including date filtering', a
   const cookie = await login(), data = await report(cookie);
   assert.deepEqual(data.totals, { breakCount: 3, restSeconds: 60, outdoorCheckins: 2, activeDeviceDays: 3, activeCalendarDays: 2, activeDevices: 2 });
   assert.equal((await report(cookie, '?from=2026-01-03&to=2026-01-03')).totals.outdoorCheckins, 1);
-  const csv = await mf.dispatchFetch(origin + '/api/admin/export', { headers: { Cookie: cookie } });
+  const csv = await mf.dispatchFetch(origin + '/api/admin/export', { headers: { Authorization: 'Bearer ' + cookie } });
   assert.equal(csv.status, 200); assert.equal(csv.headers.get('Cache-Control'), 'no-store');
   assert.match(await csv.text(), /2026-01-02,2,40,1/);
-  assert.equal((await mf.dispatchFetch(origin + '/api/admin/stats?from=2026-02-30', { headers: { Cookie: cookie } })).status, 400);
+  assert.equal((await mf.dispatchFetch(origin + '/api/admin/stats?from=2026-02-30', { headers: { Authorization: 'Bearer ' + cookie } })).status, 400);
 });
 
 test('retries, stale revisions and concurrent snapshots do not double count or overwrite newer data', async () => {
@@ -141,4 +141,21 @@ test('login guessing is limited across requests in durable storage', async () =>
   let status;
   for (let i = 0; i < 11; i++) status = (await post('/api/admin/login', { username: 'group4', password: 'incorrect' })).status;
   assert.equal(status, 429);
+});
+
+import {featureContract} from '../../web/tests/features-contract.mjs';
+test('optional accounts, consented profiles, removal and legacy data work on D1',async()=>{
+ const adminToken=await login();
+ const call=(route,{body,token,headers={}}={})=>mf.dispatchFetch(origin+route,{method:body?'POST':'GET',headers:{Origin:origin,...(body?{'Content-Type':'application/json'}:{}),...(token?{Authorization:'Bearer '+token}:{}),...headers},...(body?{body:JSON.stringify(body)}:{})});
+ await featureContract(call,adminToken);
+ assert.equal((await db.prepare('SELECT COUNT(*) n FROM participant_profiles').first()).n,0);
+ const stored=await db.prepare('SELECT password_hash,salt FROM user_accounts').first();assert.equal(stored.password_hash.length,64);assert.notEqual(stored.password_hash,'Test-only-passphrase-2026');
+});
+test('admin expiry is enforced on the server even with an active tab',async()=>{const token=await login();await db.prepare('UPDATE admin_sessions SET expires=?').bind(Date.now()-1).run();assert.equal((await mf.dispatchFetch(origin+'/api/admin/stats',{headers:{Authorization:'Bearer '+token}})).status,401);});
+
+test('racing profile updates cannot restore an older location or withdrawn metadata',async()=>{
+ const d=device(),time=new Date().toISOString(),profile={deviceName:'New name',location:{latitude:10,longitude:106,accuracy:25,capturedAt:time},consentedAt:time};
+ const send=(revision,value)=>post('/api/sync',{participantId:d.id,source:'web',consentVersion:'group4-stats-v1',revision,days:[day()],profileConsentVersion:'group4-profile-v1',profile:value},{Authorization:'Bearer '+d.token});
+ await upload(d);const results=await Promise.all([send(3,null),send(2,profile)]);assert.ok(results.every(r=>r.status===200));assert.equal((await report(await login())).participants[0].location,null);
+ await Promise.all([send(4,profile),withdraw(d)]);assert.equal((await db.prepare('SELECT COUNT(*) n FROM participant_profiles').first()).n,0);
 });

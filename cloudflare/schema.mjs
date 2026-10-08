@@ -1,5 +1,8 @@
 // Idempotent first-run schema. This creates empty tables; it never imports local user data.
+import { PROFILE_SCHEMA } from '../web/profile.js';
+import { ACCOUNT_SCHEMA } from '../web/accounts-backend.mjs';
 export const schema = [
+  ...ACCOUNT_SCHEMA,
   `CREATE TABLE IF NOT EXISTS participants (
     id TEXT PRIMARY KEY, token_hash TEXT NOT NULL, source TEXT NOT NULL,
     consent_version TEXT NOT NULL, consented_at TEXT NOT NULL, updated_at TEXT NOT NULL,
@@ -9,6 +12,7 @@ export const schema = [
     participant_id TEXT NOT NULL REFERENCES participants(id) ON DELETE CASCADE,
     day TEXT NOT NULL, break_count INTEGER NOT NULL, rest_seconds INTEGER NOT NULL,
     outdoor INTEGER NOT NULL, PRIMARY KEY(participant_id, day))`,
+  PROFILE_SCHEMA,
   'CREATE INDEX IF NOT EXISTS daily_day ON daily(day)',
   'CREATE TABLE IF NOT EXISTS admin_sessions (token_hash TEXT PRIMARY KEY, expires INTEGER NOT NULL)',
   'CREATE INDEX IF NOT EXISTS sessions_expiry ON admin_sessions(expires)',

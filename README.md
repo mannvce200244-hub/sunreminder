@@ -55,3 +55,7 @@ node server.mjs
 `src/SunReminder.Core` giữ engine và mô hình lịch sử cũ, bổ sung bộ gửi thống kê. `web` chứa PWA, API và quản trị. Không công khai `server-data`, mật khẩu, SQLite, thư mục thử nghiệm hoặc file `.env`. Chỉ chia sẻ gói `SunReminder-v3.zip` đã loại các file riêng tư; những bản EXE cũ vẫn được giữ trong workspace, không nằm trong ZIP v3.
 
 SunReminder hỗ trợ thói quen; số liệu thể hiện bộ đếm hoàn thành và check-in tự đánh dấu, không xác minh hành vi thực tế.
+
+### Web/PWA 3.2
+
+Thêm đăng nhập người dùng tùy chọn, tên hiển thị, tên thiết bị và GPS chỉ gửi sau khi đồng ý. Chế độ khách giữ đầy đủ đồng hồ và lịch sử. Quản trị yêu cầu đăng nhập mỗi lần mở/tải lại, tự khóa sau 10 phút không hoạt động. Xem [hướng dẫn sử dụng](docs/HUONG-DAN.md) và [triển khai Cloudflare](docs/CLOUDFLARE.md). Windows EXE v3 hiện có vẫn tương thích máy chủ; các bổ sung này nằm ở Web/PWA.

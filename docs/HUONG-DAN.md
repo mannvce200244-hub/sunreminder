@@ -123,3 +123,17 @@ Tham khảo yêu cầu cài PWA: [MDN — Making PWAs installable](https://devel
 Vào **Cài đặt → Chia sẻ thống kê**, đọc thông tin và tích đồng ý để bật. Trên Windows nhập URL máy chủ Group 4 trước. Mặc định tắt. Có **Gửi ngay**, **Ngừng chia sẻ** và **Xóa thống kê đã gửi**. Nếu đang chia sẻ, nhập/xóa lịch sử sẽ cập nhật số liệu máy chủ ở lần gửi tiếp theo. Toàn bộ quy tắc dữ liệu, quản trị và triển khai nằm trong [QUAN-TRI.md](QUAN-TRI.md).
 
 
+
+## 9. Tài khoản tùy chọn, tên thiết bị và GPS (Web/PWA 3.2)
+
+- Bấm **Đăng nhập người dùng** trên đầu trang. Chọn **Tạo tài khoản**, điền tên đăng nhập, tên hiển thị, mật khẩu 12–128 ký tự và đồng ý lưu tài khoản. Tên đăng nhập không dấu, gồm 3–32 chữ/số/gạch dưới; không dùng group4 hoặc admin. Không yêu cầu email. Chưa hỗ trợ quên mật khẩu qua email, nên lưu mật khẩu trong trình quản lý mật khẩu của bạn.
+- Muốn dùng ngay: đóng hộp đăng nhập hoặc chọn **Tiếp tục không đăng nhập**. Đồng hồ, lịch sử, check-in, sao lưu và chia sẻ tự nguyện vẫn dùng được.
+- Sau đăng nhập, bấm **Xin chào, …** để đổi tên hoặc đăng xuất. Tài khoản không tự bật chia sẻ, không tự lấy GPS và chưa đồng bộ lịch sử giữa các máy. Đóng/tải lại trang cần đăng nhập lại; phiên người dùng tối đa một giờ.
+- Đặt tên thiết bị: vào **Cài đặt → Thiết bị của bạn**, nhập ví dụ “Laptop của Mẫn”. Trình duyệt không đọc được tên máy tính thực.
+- Muốn chia sẻ GPS: bấm **Lấy vị trí hiện tại**, cho phép trong trình duyệt, xem tọa độ, thời gian và sai số. Chưa có gì được gửi ở bước xem trước. Bạn có thể từ chối quyền hoặc chỉ chia sẻ tên.
+- Bật chia sẻ thống kê ở phía trên, đánh dấu đồng ý chia sẻ thông tin rồi bấm **Lưu & gửi thông tin**. Tên tài khoản đang đăng nhập (nếu có) được kèm ở lần lưu này; đăng nhập/đổi tên riêng không tự sửa thông tin trên dashboard.
+- Bỏ GPS: **Bỏ vị trí khỏi bản nháp → Lưu & gửi thông tin**. Bỏ cả tên/GPS: bỏ dấu đồng ý riêng rồi lưu. Giữ bật chia sẻ tới khi thông báo gửi thành công. Khi offline, thay đổi chờ gửi lại.
+- Muốn ngừng và xóa toàn bộ thống kê, tên/vị trí đã gửi, chọn **Xóa thống kê đã gửi**. Lịch sử tại máy vẫn giữ. Thao tác này không xóa tài khoản đăng nhập.
+- Bấm **Đăng nhập admin** để vào trang quản trị Group 4. Mỗi lần mở/tải lại trang phải đăng nhập; tự khóa sau 10 phút không thao tác và hết hạn sau tối đa 30 phút.
+
+Tên là do người dùng tự khai. GPS có thể gần đúng, đặc biệt trên máy tính; không theo dõi liên tục. Cơ chế quyền dựa trên [Geolocation của trình duyệt](https://developer.mozilla.org/en-US/docs/Web/API/Geolocation/getCurrentPosition). Các tính năng mới ở bản Web/PWA trên Windows, macOS và điện thoại; bản Windows EXE v3 cũ vẫn gửi thống kê theo cách cũ.

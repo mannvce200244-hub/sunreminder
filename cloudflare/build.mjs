@@ -1,7 +1,7 @@
 import { mkdir, copyFile, readdir, unlink } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
-export const publicFiles = ['index.html','app.js','engine.js','data.js','analytics.js','sharing.js','styles.css','sw.js','manifest.webmanifest','icon.svg','icon-192.png','icon-512.png','apple-touch-icon.png','admin.html','admin.js','admin.css'];
+export const publicFiles = ['index.html','app.js','engine.js','data.js','analytics.js','sharing.js','profile.js','profile-ui.js','user-account.js','admin-session.js','styles.css','sw.js','manifest.webmanifest','icon.svg','icon-192.png','icon-512.png','apple-touch-icon.png','admin.html','admin.js','admin.css'];
 const root = fileURLToPath(new URL('../', import.meta.url));
 const output = path.join(root, 'cloudflare', 'public');
 await mkdir(output, { recursive: true });

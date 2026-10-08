@@ -19,7 +19,7 @@ Kết nối kho GitHub `mannvce200244-hub/sunreminder`, nhánh `main`. Mã ngu�
 
 Chọn gói Workers Free. Bấm Deploy và chờ build hoàn tất. Gói miễn phí có hạn mức; kiểm tra bảng Usage trên tài khoản khi dùng thật.
 
-Wrangler đã được cố định phiên bản trong package-lock.json. Build chỉ chép 16 file giao diện được cho phép vào thư mục công khai, không chép mật khẩu, SQLite hay mã nguồn máy chủ. Cấu hình D1 có binding `DB`; Wrangler hỗ trợ tự tạo database `sunreminder-db` khi triển khai lần đầu và liên kết lại ở các lần triển khai tiếp theo. Không cần tự tạo bảng SQL: Worker tạo bảng rỗng khi API được sử dụng lần đầu sau khi có mật khẩu.
+Wrangler đã được cố định phiên bản trong package-lock.json. Build chỉ chép 20 file giao diện được cho phép vào thư mục công khai, không chép mật khẩu, SQLite hay mã nguồn máy chủ. Cấu hình D1 có binding `DB`; Wrangler hỗ trợ tự tạo database `sunreminder-db` khi triển khai lần đầu và liên kết lại ở các lần triển khai tiếp theo. Không cần tự tạo bảng SQL: Worker tạo bảng rỗng khi API được sử dụng lần đầu sau khi có mật khẩu.
 
 Nguồn: [Workers Builds](https://developers.cloudflare.com/workers/ci-cd/builds/configuration/), [tự tạo D1](https://developers.cloudflare.com/changelog/post/2025-10-24-automatic-resource-provisioning/).
 
@@ -82,3 +82,11 @@ npm run check:deploy
 ```
 
 `npm run check:deploy` chỉ đóng gói thử, không đăng app. `npm test` chạy các kiểm thử cũ và Worker trên Miniflare + D1 cục bộ. Muốn chạy thử quản trị, tạo `.dev.vars` cục bộ chứa SUN_ADMIN_PASSWORD dùng riêng cho thử nghiệm rồi chạy `npm run dev`; file này đã được loại khỏi Git. Không dùng dữ liệu thật để kiểm thử xóa.
+
+## Nâng cấp Web/PWA 3.2
+
+Giữ nguyên binding DB và Secret SUN_ADMIN_PASSWORD. Bản này tự tạo thêm bảng thông tin thiết bị, tài khoản và phiên người dùng bằng CREATE TABLE IF NOT EXISTS; không đổi bảng lịch sử hoặc mã thiết bị cũ. Sau khi GitHub triển khai xong, đóng hết cửa sổ SunReminder rồi mở lại để cập nhật bản ngoại tuyến.
+
+Tài khoản người dùng tách quyền khỏi admin. Mật khẩu người dùng dùng PBKDF2-SHA-256, 100.000 vòng (tương thích workerd hiện dùng), salt ngẫu nhiên từng tài khoản; không lưu mật khẩu gốc. Có giới hạn đăng nhập/đăng ký theo IP và tên đăng nhập. Khóa phiên chỉ giữ trong bộ nhớ trang, máy chủ lưu bản băm và thời hạn. Đổi mật khẩu admin không đổi mật khẩu người dùng. Chưa có khôi phục mật khẩu qua email hoặc đồng bộ lịch sử theo tài khoản.
+
+Xem [hướng dẫn người dùng](HUONG-DAN.md#9-tài-khoản-tùy-chọn-tên-thiết-bị-và-gps-webpwa-32) để thử chế độ khách, đăng ký/đăng nhập và chia sẻ vị trí có đồng ý.
