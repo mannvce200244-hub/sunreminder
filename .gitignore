@@ -22,3 +22,11 @@ Preview/
 *.p12
 *.key
 node_modules/
+
+# Cloudflare local state, generated assets and secrets
+node_modules/
+.wrangler/
+cloudflare/public/
+**/.dev.vars
+**/.dev.vars.*
+!**/.dev.vars.example

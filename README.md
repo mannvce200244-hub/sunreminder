@@ -6,6 +6,10 @@
 
 Mở **[Releases — SunReminder v3.0.0](https://github.com/mannvce200244-hub/sunreminder/releases/tag/v3.0.0)**, tải file **SunReminder-v3.zip** trong Assets rồi giải nén. File này có sẵn EXE Windows và mã nguồn web. Nút **Code → Download ZIP** chỉ tải mã nguồn, không có EXE đã build. Kho hiện để riêng tư nên cần đăng nhập GitHub bằng tài khoản có quyền truy cập.
 
+## Đưa app lên Cloudflare miễn phí
+
+Đã bổ sung cấu hình Worker + D1 ở gốc kho. Xem **[hướng dẫn Cloudflare từng bước](docs/CLOUDFLARE.md)**. Trên màn hình tạo Worker: Build command **npm run build**, Deploy command **npx wrangler deploy**, root là gốc kho. Sau deploy, đặt Secret **SUN_ADMIN_PASSWORD** để bật quản trị và nhận thống kê. Bản ZIP v3.0.0 đã phát hành vẫn là bản Windows/web cục bộ cũ; dùng mã nguồn nhánh main cho Cloudflare.
+
 ## Mở ngay
 
 - **Windows:** mở `App-v3/SunReminder.exe` hoặc `Launch-SunReminder.cmd`. Thoát bản cũ trong khay hệ thống trước. Bản mới tiếp tục dùng dữ liệu hiện có của cùng tài khoản Windows.
@@ -51,4 +55,3 @@ node server.mjs
 `src/SunReminder.Core` giữ engine và mô hình lịch sử cũ, bổ sung bộ gửi thống kê. `web` chứa PWA, API và quản trị. Không công khai `server-data`, mật khẩu, SQLite, thư mục thử nghiệm hoặc file `.env`. Chỉ chia sẻ gói `SunReminder-v3.zip` đã loại các file riêng tư; những bản EXE cũ vẫn được giữ trong workspace, không nằm trong ZIP v3.
 
 SunReminder hỗ trợ thói quen; số liệu thể hiện bộ đếm hoàn thành và check-in tự đánh dấu, không xác minh hành vi thực tế.
-

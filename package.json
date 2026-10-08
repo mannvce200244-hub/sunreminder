@@ -1,0 +1,20 @@
+{
+  "name": "sunreminder-cloudflare",
+  "version": "3.1.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "build": "node cloudflare/build.mjs",
+    "test": "npm run build && node --test web/tests/*.test.mjs cloudflare/tests/*.test.mjs",
+    "dev": "npm run build && wrangler dev",
+    "deploy": "wrangler deploy",
+    "check:deploy": "npm run build && wrangler deploy --dry-run"
+  },
+  "devDependencies": {
+    "miniflare": "4.20260730.0",
+    "wrangler": "4.148.0"
+  }
+}
