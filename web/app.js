@@ -1,9 +1,9 @@
 import { BackgroundReminders, TIMER_KEY, workerMessage } from './background.js';
 import { UsageTracker, formatUsage } from './usage.js';
 import { mountAccount } from './user-account.js';
-import { mountProfile } from './profile-ui.js';
+import { mountSharing } from './profile-ui.js';
 import { ReminderEngine } from './engine.js';
-import { STORAGE_KEY, defaults, dayKey, validateData, mergeData, csv } from './data.js';
+import { STORAGE_KEY, defaults, dayKey, validateData } from './data.js';
 import { SharingClient } from './sharing.js';
 const $ = id => document.getElementById(id);
 document.querySelectorAll('nav a').forEach(link => link.setAttribute('aria-label',link.querySelector('span').textContent));
@@ -11,18 +11,19 @@ let data = defaults(), storageBlocked = false, ownsApp = false, preview = false,
 const engine = new ReminderEngine();
 const form = $('settings-form');
 let currentDay = dayKey(), previousState;
-let sharing, background;
+let sharing, background, sharingUI;
+let historyLimit=50;
 let timerRestored=false;
 function toast(message) { $('toast').textContent=message; $('toast').hidden=false;clearTimeout(toastTimeout);toastTimeout=setTimeout(()=>$('toast').hidden=true,5500); }
 function storageWarning(message) { $('storage-warning').textContent=message;$('storage-warning').hidden=false; }
 try { const saved=localStorage.getItem(STORAGE_KEY);if(saved) data=validateData(JSON.parse(saved)); }
-catch { storageBlocked=true;storageWarning('Không đọc được dữ liệu đã lưu. Dữ liệu gốc vẫn được giữ; app đang dùng mặc định và chưa ghi đè. Hãy dùng Sao lưu JSON để giữ bản gốc, rồi kiểm tra hoặc nhập lại file hợp lệ.'); }
+catch { storageBlocked=true;storageWarning('Không đọc được dữ liệu đã lưu. Dữ liệu gốc vẫn được giữ; app đang dùng mặc định và chưa ghi đè. Hãy liên hệ Group 4 để hỗ trợ khôi phục; chưa xóa dữ liệu trình duyệt.'); }
 engine.configure(data.Settings.IntervalMinutes,data.Settings.BreakSeconds,data.Settings.SnoozeMinutes);
 function persist(next) {
   if(!ownsApp) {toast('SunReminder đang được dùng trong cửa sổ khác.');return false;}
-  if(storageBlocked) {toast('Chưa thể lưu. Hãy sao lưu dữ liệu gốc và kiểm tra trước.');return false;}
+  if(storageBlocked) {toast('Chưa thể lưu. Hãy liên hệ Group 4 để kiểm tra dữ liệu gốc.');return false;}
   try {localStorage.setItem(STORAGE_KEY,JSON.stringify(next));data=next;$('storage-warning').hidden=true;sharing?.changed();return true;}
-  catch {storageWarning('Không lưu được dữ liệu: bộ nhớ có thể đầy hoặc bị chặn. Hãy sao lưu JSON trước khi đóng app.');return false;}
+  catch {storageWarning('Không lưu được dữ liệu: bộ nhớ có thể đầy hoặc bị chặn. Chưa đóng app; hãy kiểm tra quyền lưu trữ hoặc liên hệ Group 4.');return false;}
 }
 const clockText = seconds => {const n=Math.ceil(seconds);return `${String(Math.floor(n/60)).padStart(2,'0')}:${String(n%60).padStart(2,'0')}`;};
 function renderClock() {
@@ -50,10 +51,12 @@ function renderStats() {
 function renderHistory() {
   $('history-empty').hidden=data.Breaks.length>0;$('history-table-wrap').hidden=!data.Breaks.length;$('clear-history').disabled=!data.Breaks.length&&!data.OutdoorDays.length;
   const rows=document.createDocumentFragment();
-  for(const r of [...data.Breaks].sort((a,b)=>Date.parse(b.CompletedAt)-Date.parse(a.CompletedAt)).slice(0,500)){
+  for(const r of [...data.Breaks].sort((a,b)=>Date.parse(b.CompletedAt)-Date.parse(a.CompletedAt)).slice(0,historyLimit)){
     const row=document.createElement('tr');const date=new Date(r.CompletedAt);
     for(const text of [date.toLocaleDateString('vi-VN'),date.toLocaleTimeString('vi-VN'),`${r.DurationSeconds} giây`,'Đã check-in nghỉ mắt']){const td=document.createElement('td');td.textContent=text;row.append(td);}rows.append(row);
   }$('history-body').replaceChildren(rows);
+  $('history-summary').textContent='Đang hiển thị '+Math.min(historyLimit,data.Breaks.length)+' / '+data.Breaks.length+' lần nghỉ.';
+  $('history-more').hidden=data.Breaks.length<=historyLimit;
   const days=Array.from({length:7},(_,i)=>{const d=new Date();d.setHours(12,0,0,0);d.setDate(d.getDate()-6+i);return d;});
   const counts=days.map(d=>data.Breaks.filter(r=>dayKey(new Date(r.CompletedAt))===dayKey(d)).length);const max=Math.max(1,...counts);
   $('week-summary').textContent=`${counts.reduce((a,b)=>a+b,0)} lần nghỉ mắt · ${days.filter(d=>data.OutdoorDays.includes(dayKey(d))).length}/7 ngày check-in ngoài trời`;
@@ -92,22 +95,18 @@ $('primary').addEventListener('click',()=>{prepareAudio();switch(engine.state){c
 $('rest-now').addEventListener('click',startBreak);$('snooze').addEventListener('click',postpone);$('stop').addEventListener('click',()=>{engine.stop();closeReminder();renderClock();toast('Đã kết thúc phiên. Bắt đầu lại khi bạn sẵn sàng.');});
 $('begin-break').addEventListener('click',()=>{if(preview)closeReminder();else {engine.startBreak();renderClock();}});$('later-break').addEventListener('click',postpone);$('close-reminder').addEventListener('click',dismissReminder);$('reminder-dialog').addEventListener('cancel',e=>{e.preventDefault();dismissReminder();});
 engine.onDue=()=>{if(!document.hidden)chime();void notify('Đến giờ nghỉ mắt',`Dành ${data.Settings.BreakSeconds} giây nhìn ra xa. Mở SunReminder khi bạn sẵn sàng.`,{id:engine.phaseId,kind:'due',deadline:engine.deadline*1000});if(data.Settings.Popups&&!document.hidden)showReminder();else toast('Đến giờ nghỉ mắt. Bấm Bắt đầu nghỉ khi bạn sẵn sàng.');};
-engine.onComplete=(seconds,completion)=>{closeReminder();if(data.Breaks.some(r=>r.SessionId===completion.id))return;const next=structuredClone(data);next.Breaks.push({CompletedAt:completion.completedAt,DurationSeconds:seconds,SessionId:completion.id});void notify('Đã hết giờ nghỉ mắt','Mở SunReminder để xem check-in.',{id:completion.id,kind:'complete',deadline:Date.parse(completion.completedAt)});const saved=persist(next);if(!saved)data=next;renderStats();renderHistory();toast(saved?'Đã check-in nghỉ mắt! Nhịp tập trung mới bắt đầu.':'Đã nghỉ xong nhưng chưa lưu được check-in. Hãy sao lưu trước khi đóng app.');};
+engine.onComplete=(seconds,completion)=>{closeReminder();if(data.Breaks.some(r=>r.SessionId===completion.id))return;const next=structuredClone(data);next.Breaks.push({CompletedAt:completion.completedAt,DurationSeconds:seconds,SessionId:completion.id});void notify('Đã hết giờ nghỉ mắt','Mở SunReminder để xem check-in.',{id:completion.id,kind:'complete',deadline:Date.parse(completion.completedAt)});const saved=persist(next);if(!saved)data=next;renderStats();renderHistory();toast(saved?'Đã check-in nghỉ mắt! Nhịp tập trung mới bắt đầu.':'Đã nghỉ xong nhưng chưa lưu được check-in. Chưa đóng app; hãy liên hệ Group 4 để được hỗ trợ.');};
 $('outdoor').addEventListener('click',()=>{const next=structuredClone(data),today=dayKey();const done=next.OutdoorDays.includes(today);next.OutdoorDays=done?next.OutdoorDays.filter(d=>d!==today):[...next.OutdoorDays,today];if(persist(next)){renderStats();renderHistory();toast(done?'Đã bỏ check-in hôm nay.':'Đã ghi lại một khoảng trời cho hôm nay!');}});
 form.elements.MorningReminder.addEventListener('change',()=>form.elements.MorningTime.disabled=!form.elements.MorningReminder.checked);
 form.addEventListener('submit',e=>{e.preventDefault();if(!form.reportValidity())return;const next=structuredClone(data),p=next.Settings;for(const key of ['IntervalMinutes','BreakSeconds','SnoozeMinutes'])p[key]=Number(form.elements[key].value);for(const key of ['Popups','Sound','MorningReminder'])p[key]=form.elements[key].checked;[p.MorningHour,p.MorningMinute]=form.elements.MorningTime.value.split(':').map(Number);try{validateData(next);}catch(error){toast(error.message);return;}const timing=['IntervalMinutes','BreakSeconds','SnoozeMinutes'].some(k=>p[k]!==data.Settings[k]);if(!persist(next))return;if(timing){engine.configure(p.IntervalMinutes,p.BreakSeconds,p.SnoozeMinutes);closeReminder();}engine.onChange?.();if(!p.Popups)closeReminder();if(p.Sound)prepareAudio();$('save-feedback').textContent=timing?'Đã lưu. Chu kỳ hiện tại đã được đặt lại.':'Đã lưu cài đặt của bạn.';toast($('save-feedback').textContent);renderClock();});
 function notificationStatus(){const supported='Notification'in window;$('notification-status').textContent=!supported?'Trình duyệt này chưa hỗ trợ thông báo thiết bị. Hãy dùng cửa sổ nhắc trong app.':Notification.permission==='granted'?'Đã cấp quyền thông báo. Bật nhắc khi chạy nền bên dưới để nhận nhắc từ máy chủ.':Notification.permission==='denied'?'Thông báo đang bị chặn. Bạn có thể đổi quyền trong cài đặt của trình duyệt.':'Thông báo thiết bị là tùy chọn; cửa sổ nhắc vẫn dùng được khi chưa cấp quyền.';$('notification-permission').disabled=!supported||Notification.permission==='granted'||Notification.permission==='denied';}
 $('notification-permission').addEventListener('click',async()=>{try{await Notification.requestPermission();notificationStatus();}catch{toast('Không thể yêu cầu quyền ở trình duyệt này.');}});
 $('test-notification').addEventListener('click',()=>{prepareAudio();chime();showReminder(true);void notify('Thông báo thử SunReminder','Bản thử không thay đổi chu kỳ và lịch sử.');});
-function download(content,name,type){const url=URL.createObjectURL(new Blob([content],{type}));const a=document.createElement('a');a.href=url;a.download=name;document.body.append(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),30000);}
-function backup(){let content=JSON.stringify(data,null,2);if(storageBlocked){try{content=localStorage.getItem(STORAGE_KEY)||content;}catch{toast('Không truy cập được dữ liệu gốc. Hãy kiểm tra quyền lưu trữ trình duyệt.');return;}}download(content,`SunReminder-${storageBlocked?'original':'backup'}-${dayKey()}.json`,'application/json');toast('Đã tạo file sao lưu. Kiểm tra mục tải xuống hoặc chia sẻ của thiết bị.');}
-$('backup').addEventListener('click',backup);$('backup-history').addEventListener('click',backup);$('export-csv').addEventListener('click',()=>download(csv(data),`SunReminder-${dayKey()}.csv`,'text/csv;charset=utf-8'));
 let confirmAction;
 function confirmActionDialog(title,message,action,label='Xác nhận'){confirmAction=action;$('confirm-title').textContent=title;$('confirm-message').textContent=message;$('accept-confirm').textContent=label;$('cancel-confirm').hidden=false;$('confirm-dialog').showModal();$('cancel-confirm').focus();}
 $('cancel-confirm').addEventListener('click',()=>{$('confirm-dialog').close();confirmAction=null;});$('accept-confirm').addEventListener('click',()=>{const fn=confirmAction;confirmAction=null;$('confirm-dialog').close();fn?.();});$('confirm-dialog').addEventListener('cancel',()=>confirmAction=null);
 $('clear-history').addEventListener('click',()=>confirmActionDialog('Xóa lịch sử trên thiết bị này?','Toàn bộ lần nghỉ và check-in sẽ bị xóa. Cài đặt vẫn được giữ. Nếu đang chia sẻ, thống kê máy chủ sẽ được cập nhật theo lịch sử trống khi gửi thành công. Nếu đã ngừng chia sẻ, dùng nút Xóa thống kê đã gửi để xóa trên máy chủ.',()=>{const next={...data,Breaks:[],OutdoorDays:[]};if(persist(next)){renderStats();renderHistory();toast('Đã xóa lịch sử. Cài đặt vẫn được giữ.');}},'Xóa lịch sử'));
-$('import').addEventListener('click',()=>$('import-file').click());
-$('import-file').addEventListener('change',async e=>{const file=e.target.files[0];e.target.value='';if(!file)return;if(file.size>20*1024*1024){toast('File vượt quá 20 MB. Hãy chọn bản sao lưu nhỏ hơn.');return;}try{const incoming=validateData(JSON.parse(await file.text()));confirmActionDialog('Nhập dữ liệu SunReminder?',`File có ${incoming.Breaks.length} lần nghỉ và ${incoming.OutdoorDays.length} ngày ngoài trời. App sẽ gộp lịch sử, áp dụng cài đặt từ file và đặt lại đồng hồ. Một bản sao dữ liệu hiện tại sẽ được tải xuống trước khi nhập.`,()=>{backup();const next=mergeData(data,incoming);const wasBlocked=storageBlocked;storageBlocked=false;if(persist(next)){engine.stop();engine.configure(next.Settings.IntervalMinutes,next.Settings.BreakSeconds,next.Settings.SnoozeMinutes);closeReminder();fillSettings();renderStats();renderHistory();renderClock();toast('Đã nhập dữ liệu. Lịch sử cũ được giữ và bản ghi trùng không thêm lại.');}else storageBlocked=wasBlocked;},'Sao lưu & nhập');}catch(error){toast(`Chưa nhập dữ liệu. ${error instanceof SyntaxError?'File JSON không hợp lệ.':error.message}`);}});
+$('history-more').addEventListener('click',()=>{historyLimit+=50;renderHistory();});
 function installationHelp(){confirmActionDialog('Mang SunReminder theo bạn','Android: Chrome → menu → Cài đặt ứng dụng. iPhone/iPad: Safari → Chia sẻ → Thêm vào Màn hình chính. Mac: dùng tính năng thêm vào Dock hoặc cài ứng dụng của trình duyệt. Cần mở app qua HTTPS (hoặc localhost trên máy tính).',()=>{},'Đã hiểu');$('cancel-confirm').hidden=true;$('accept-confirm').focus();}
 window.addEventListener('beforeinstallprompt',e=>{e.preventDefault();installPrompt=e;});
 $('install').addEventListener('click',async()=>{if(installPrompt){await installPrompt.prompt();await installPrompt.userChoice;installPrompt=null;}else installationHelp();});
@@ -133,24 +132,11 @@ if('serviceWorker'in navigator&&window.isSecureContext){navigator.serviceWorker.
 function otherWindow(){engine.stop();$('app-shell').inert=true;confirmActionDialog('SunReminder đang mở ở cửa sổ khác','Để tránh ghi lịch sử trùng hoặc đè dữ liệu, hãy dùng cửa sổ đang mở. Đóng cửa sổ đó rồi tải lại trang này để tiếp tục.',()=>location.reload(),'Tải lại');$('cancel-confirm').hidden=true;$('confirm-dialog').addEventListener('cancel',e=>e.preventDefault());$('accept-confirm').focus();}
 if(navigator.locks){navigator.locks.request('sunreminder-active-window',{ifAvailable:true},async lock=>{if(!lock){otherWindow();return;}ownsApp=true;restoreTimer();await new Promise(()=>{});}).catch(()=>{storageWarning('Không khóa được phiên an toàn. Hãy đóng các cửa sổ SunReminder khác rồi tải lại.');$('app-shell').inert=true;});}
 else{ownsApp=true;queueMicrotask(restoreTimer);storageWarning('Trình duyệt này không hỗ trợ khóa nhiều cửa sổ. Chỉ mở một cửa sổ SunReminder để tránh ghi đè lịch sử.');window.addEventListener('storage',e=>{if(e.key===STORAGE_KEY){ownsApp=false;otherWindow();}});}
-function sharingStatus(client){
-  const s=client.state;$('sharing-status').textContent=client.message+(s.lastSync?' Lần gửi thành công: '+new Date(s.lastSync).toLocaleString('vi-VN')+'.':'');
-  $('sharing-id').textContent=s.participantId?(s.profile?.deviceName?'Tên đã lưu: '+s.profile.deviceName+' · ':'')+'Mã đối chiếu: '+s.participantId.slice(-8):'Chưa gửi thống kê.';
-  $('share-enable').disabled=client.blocked||s.enabled||s.pendingDelete||!$('share-consent').checked;
-  $('share-stop').disabled=!s.enabled;$('share-now').disabled=client.busy||!s.enabled;$('share-delete').disabled=!s.participantId||s.pendingDelete;
-  $('share-consent').disabled=s.enabled||s.pendingDelete;
-  $('usage-consent').checked=s.usageEnabled;$('usage-consent').disabled=client.blocked||s.pendingDelete||(!s.enabled&&!s.usageEnabled);
-  $('usage-local').textContent='Đã ghi trên thiết bị: '+formatUsage((s.usageDays||[]).reduce((sum,d)=>sum+d.seconds,0))+'. '+(s.enabled&&s.usageEnabled?'Đang ghi khi app hiển thị.':'Đang tắt ghi thời gian.');
-}
+function sharingStatus(){sharingUI?.render();}
 // Credentials are separate from history/backup JSON and never imported from another device.
 const safeStorage={getItem:key=>localStorage.getItem(key),setItem:(key,value)=>localStorage.setItem(key,value)};
 sharing=new SharingClient({storage:safeStorage,getData:()=>data,canSend:()=>ownsApp&&!storageBlocked,onChange:sharingStatus});
-$('share-consent').checked=sharing.state.enabled;
-$('share-consent').addEventListener('change',()=>sharingStatus(sharing));
-$('share-enable').addEventListener('click',async()=>{if(!$('share-consent').checked)return;try{const r=await fetch('/api/config',{cache:'no-store',signal:AbortSignal.timeout(8000)});if(!r.ok)throw Error();const config=await r.json();if(!config.enabled||config.consentVersion!=='group4-stats-v1')throw Error();sharing.enable();usageTracker.sample(usageEligible());}catch{toast('Máy chủ Group 4 chưa sẵn sàng. Chưa bật chia sẻ; bạn vẫn dùng app bình thường.');}});
-$('share-stop').addEventListener('click',()=>{usageTracker.sample(false);sharing.stop();$('share-consent').checked=false;sharingStatus(sharing);});
-$('share-now').addEventListener('click',()=>void sharing.flush(true));
-$('share-delete').addEventListener('click',()=>confirmActionDialog('Xóa thống kê đã gửi cho Group 4?','App sẽ ngừng chia sẻ và xóa số liệu của mã thiết bị này trên máy chủ. Lịch sử trong app vẫn được giữ. Khi mất mạng, yêu cầu xóa sẽ chờ gửi lại.',()=>{usageTracker.sample(false);sharing.withdraw();$('share-consent').checked=false;sharingStatus(sharing);},'Ngừng & xóa trên máy chủ'));
+$('share-delete').addEventListener('click',()=>confirmActionDialog('Ngừng & xóa dữ liệu đã gửi?','Thống kê, thời gian sử dụng, tên và vị trí của thiết bị này sẽ được xóa khỏi máy chủ Group 4. Lịch sử trên máy vẫn giữ. Khi mất mạng, yêu cầu sẽ chờ gửi lại.',()=>{usageTracker.sample(false);sharing.withdraw();sharingUI.reset();},'Ngừng & xóa'));
 window.addEventListener('online',()=>void sharing.flush());setInterval(()=>void sharing.flush(),30000);
 sharingStatus(sharing);
 const usageEligible=()=>ownsApp&&!storageBlocked&&!document.hidden&&sharing.state.enabled&&sharing.state.usageEnabled&&!sharing.state.pendingDelete;
@@ -159,7 +145,7 @@ setInterval(()=>{usageTracker.sample(usageEligible());$('usage-local').textConte
 document.addEventListener('visibilitychange',()=>{usageTracker.sample(usageEligible());if(document.hidden)void sharing.flush();});
 window.addEventListener('pagehide',()=>{usageTracker.sample(false);void sharing.flush();});
 window.addEventListener('pageshow',()=>usageTracker.sample(usageEligible()));
-$('usage-consent').addEventListener('change',()=>{const enabled=$('usage-consent').checked;usageTracker.sample(false);if(!sharing.setUsageEnabled(enabled))toast('Bật chia sẻ thống kê trước khi chia sẻ thời gian sử dụng.');usageTracker.sample(usageEligible());sharingStatus(sharing);});
+
 function backgroundStatus(client){$('background-status').textContent=client.message;$('background-enable').disabled=client.blocked||client.state.enabled;$('background-disable').disabled=!client.state.enabled;if(changingBackground){$('background-enable').disabled=true;$('background-disable').disabled=true;}}
 background=new BackgroundReminders({storage:safeStorage,onChange:backgroundStatus});
 engine.onChange=()=>{if(!ownsApp)return;try{safeStorage.setItem(TIMER_KEY,JSON.stringify(engine.snapshot()));}catch{toast('Chưa lưu được đồng hồ để mở lại. Hãy kiểm tra bộ nhớ thiết bị.');}background.update(engine,data.Settings.Sound);};
@@ -175,5 +161,5 @@ window.addEventListener('pageshow',()=>{if(ownsApp){engine.tick();renderClock();
 navigator.serviceWorker?.addEventListener('message',event=>{if(event.data?.type==='SUN_OPEN_FOCUS')location.hash='focus';if(ownsApp&&['SUN_TIMER_WAKE','SUN_OPEN_FOCUS'].includes(event.data?.type)){engine.tick();renderClock();}});
 backgroundStatus(background);
 const account=mountAccount();
-mountProfile(sharing,account.getUser);
+sharingUI=mountSharing(sharing,{getUser:account.getUser,canChange:()=>ownsApp&&!storageBlocked,onBeforeChange:()=>usageTracker.sample(false),onAfterChange:()=>usageTracker.sample(usageEligible())});
 fillSettings();notificationStatus();renderStats();renderHistory();renderClock();navigate();connection();

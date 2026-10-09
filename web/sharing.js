@@ -12,6 +12,14 @@ export class SharingClient {
   }
   save(next){try{this.storage.setItem(SHARE_KEY,JSON.stringify(next));this.state=next;return true;}catch{this.message='Không lưu được lựa chọn chia sẻ. Chưa bật gửi tự động.';this.onChange(this);return false;}}
   enable(){if(this.blocked||this.state.pendingDelete)return false;const s={...this.state,enabled:true};if(!s.participantId){s.participantId='p_'+randomHex(16);s.token=randomHex(32);s.revision=0;}if(!this.save(s))return false;this.dirty=true;this.message='Đã đồng ý. Đang chờ gửi thống kê…';this.onChange(this);void this.flush();return true;}
+  enableCombined(profile){
+    if(this.blocked||this.state.pendingDelete)return false;
+    const clean=profileFromPayload({profile,profileConsentVersion:PROFILE_CONSENT_VERSION});
+    const next={...this.state,enabled:true,usageEnabled:true,usageConfigured:true,profile:clean,profileConfigured:true};
+    if(!next.participantId){next.participantId='p_'+randomHex(16);next.token=randomHex(32);next.revision=0;}
+    if(!this.save(next))return false;
+    this.dirty=true;this.message='Đã lưu lựa chọn chia sẻ. Đang chờ gửi…';this.onChange(this);void this.flush();return true;
+  }
   stop(){// Stop in memory even if storage fails; never send after a failed preference write.
     this.state={...this.state,enabled:false};const saved=this.save(this.state);this.controller?.abort();this.message=saved?'Đã ngừng gửi mới. Thống kê đã gửi vẫn ở Group 4; bạn có thể xóa bên dưới.':'Đã ngừng gửi trong phiên này nhưng chưa lưu được lựa chọn. Hãy thử lại trước khi đóng app.';this.onChange(this);
   }

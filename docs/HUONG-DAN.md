@@ -1,4 +1,4 @@
-# SunReminder 3.0 — Hướng dẫn sử dụng
+# SunReminder — Hướng dẫn Web/PWA 3.5 và Windows EXE v3
 
 **Nắng sớm, mắt khỏe · Được thực hiện bởi Group 4**
 
@@ -30,7 +30,7 @@ Không bấm đúp `index.html`: các module JavaScript và khả năng cài/off
 
 ### Điện thoại và cài lên màn hình chính
 
-Mở [SunReminder online](https://sunreminder.mannvce200244.workers.dev/). Bản Cloudflare hỗ trợ thống kê và thông báo đẩy chạy nền; xem [hướng dẫn triển khai](CLOUDFLARE.md) nếu tự triển khai. Chưa có bản phát hành App Store/Google Play. Người tham gia không cần tài khoản; quản trị cần đăng nhập.
+Mở [SunReminder online](https://sunreminder.group4-ssg105.workers.dev/). Bản Cloudflare hỗ trợ thống kê và thông báo đẩy chạy nền; xem [hướng dẫn triển khai](CLOUDFLARE.md) nếu tự triển khai. Chưa có bản phát hành App Store/Google Play. Người tham gia không cần tài khoản; quản trị cần đăng nhập.
 
 - **Android:** mở URL HTTPS trong Chrome → menu → Cài đặt ứng dụng / Thêm vào màn hình chính.
 - **iPhone/iPad:** mở trong Safari → Chia sẻ → Thêm vào Màn hình chính.
@@ -68,22 +68,15 @@ Trên Windows còn có **ẩn xuống khay khi bấm X** và **khởi động c�
 
 Trên web, nút **Bật thông báo thiết bị** yêu cầu quyền trình duyệt. Bạn có thể từ chối và dùng cửa sổ nhắc trong app. App không tự đổi chế độ Không làm phiền hoặc quyền hệ thống.
 
-## 4. Lịch sử, sao lưu và chuyển thiết bị
+## 4. Lịch sử và dữ liệu
 
-**Lịch sử** hiển thị thống kê 7 ngày và tối đa 500 lần nghỉ gần nhất. **Xuất CSV** xuất tất cả lần nghỉ để mở trong Excel, không chứa cài đặt/check-in. Chỉ số biểu thị đồng hồ đếm ngược hoàn thành, không xác nhận bạn thực sự nhìn xa.
+**Lịch sử** hiển thị biểu đồ 7 ngày và các lần nghỉ mới nhất. Bấm **Xem thêm lịch sử** để xem tiếp những lần cũ hơn, không giới hạn ở 500 bản ghi. Chỉ số biểu thị đồng hồ nghỉ hoàn thành, không xác nhận hành vi nhìn xa.
 
-**Sao lưu JSON** chứa cài đặt, lịch sử và check-in. Để chuyển từ Windows sang web:
+Bản Web/PWA 3.5 không có nút JSON/CSV trong giao diện người dùng. Lịch sử tự lưu trong trình duyệt theo địa chỉ app; đăng nhập chưa đồng bộ lịch sử giữa thiết bị. Xóa dữ liệu trình duyệt hoặc đổi địa chỉ sẽ tạo vùng dữ liệu khác. **Xóa lịch sử** cần xác nhận và vẫn giữ cài đặt. Nếu gặp lỗi lưu trữ, liên hệ Group 4 trước khi xóa dữ liệu.
 
-1. Windows → **Lịch sử → Sao lưu JSON**. Bản cũ cũng có thể dùng file `data.json` trong thư mục dữ liệu.
-2. Chuyển file đó sang thiết bị cần dùng.
-3. Web → **Cài đặt → Nhập từ Windows / JSON** → chọn file.
-4. Đọc số bản ghi, chọn **Sao lưu & nhập**. App tải bản sao dữ liệu web hiện tại trước, gộp lịch sử/check-in và áp dụng cài đặt trong file.
+Group 4 đăng nhập quản trị để dùng **Xuất CSV** hoặc **Công cụ dữ liệu → Tải báo cáo JSON** theo khoảng ngày đã chọn. Trong cùng khu vực có **Sao lưu JSON thiết bị / Nhập JSON thiết bị** để hỗ trợ lịch sử trên trình duyệt đang dùng. Nhập sẽ gộp lịch sử, tránh trùng, áp dụng cài đặt và đặt lại đồng hồ; app tải một bản sao trước khi nhập. Cần đóng các cửa sổ app người dùng trước. Công cụ này không truy cập lịch sử cục bộ trên máy người khác và không khôi phục cơ sở dữ liệu máy chủ. JSON báo cáo và JSON lịch sử là hai định dạng khác nhau.
 
-Nhập lại cùng file không thêm trùng bản ghi. File lỗi bị từ chối trước khi thay dữ liệu. Dữ liệu gốc Windows không bị sửa. Không có đồng bộ tự động hoặc nhập ngược từ web vào EXE trong phiên bản này.
-
-Web lưu trong trình duyệt theo địa chỉ trang. Hai trình duyệt, hai địa chỉ hoặc hai thiết bị có dữ liệu riêng. Xóa dữ liệu trang hoặc dùng chế độ riêng tư có thể làm mất lịch sử. Hãy giữ file JSON ở nơi an toàn. Khi bộ nhớ đầy hoặc bị chặn, app hiện lỗi thay vì báo lưu thành công.
-
-**Xóa lịch sử** cần xác nhận, xóa lần nghỉ và check-in, giữ cài đặt.
+Bản Windows EXE v3 vẫn giữ chức năng CSV, sao lưu và nhập như trước. Các file lịch sử Windows hợp lệ có thể nhập bằng công cụ JSON thiết bị trong trang quản trị Web.
 
 ## 5. Khi chuyển app, ngủ hoặc khóa màn hình
 
@@ -117,39 +110,31 @@ Thông tin nhóm có trong **Về Group 4** trên Windows và **Group 4** trên 
 ## 7. Phát triển và phát hành
 
 - Windows: .NET 10 SDK, `Build.cmd`. Kết quả mới ở `App-v3`.
-- Web: không có thư viện bên ngoài hoặc bước npm install; `node setup-admin.mjs`, sau đó `node server.mjs` để chạy, `node --test tests/*.test.mjs` để kiểm thử.
+- Web/Cloudflare: tại gốc kho, dùng `npm ci` rồi `npm test` để chạy toàn bộ kiểm thử. Chạy Node cục bộ bằng `node web/setup-admin.mjs` và `node web/server.mjs`; Web Push chỉ có trên bản Cloudflare.
 - Triển khai cả web và API Node.js theo [QUAN-TRI.md](QUAN-TRI.md). Không dùng static hosting cho chức năng thu thống kê.
 - Giữ đường dẫn thư mục ổn định để không thay vùng dữ liệu trình duyệt. Tăng phiên bản `CACHE` trong `sw.js` mỗi lần phát hành thay đổi web. Bản mới hoạt động sau khi đóng hết các cửa sổ bản cũ và mở lại.
 - Chế độ QA riêng trên Windows: `SunReminder.exe --data-dir <đường-dẫn-thử>`. Không dùng thư mục dữ liệu thật để thử thao tác xóa.
 
 Tham khảo yêu cầu cài PWA: [MDN — Making PWAs installable](https://developer.mozilla.org/en-US/docs/Web/Progressive_web_apps/Guides/Making_PWAs_installable).
 
-## 8. Chia sẻ thống kê tự nguyện
+## 8. Một nơi quản lý chia sẻ (Web/PWA 3.5)
 
-Vào **Cài đặt → Chia sẻ thống kê**, đọc thông tin và tích đồng ý để bật. Trên Windows nhập URL máy chủ Group 4 trước. Mặc định tắt. Có **Gửi ngay**, **Ngừng chia sẻ** và **Xóa thống kê đã gửi**. Nếu đang chia sẻ, nhập/xóa lịch sử sẽ cập nhật số liệu máy chủ ở lần gửi tiếp theo. Toàn bộ quy tắc dữ liệu, quản trị và triển khai nằm trong [QUAN-TRI.md](QUAN-TRI.md).
+1. Mở **Cài đặt → Chia sẻ với Group 4**.
+2. Bật **Tôi đồng ý chia sẻ thống kê và thời gian sử dụng**. Chưa có dữ liệu gửi chỉ vì bật công tắc; cần nút lưu ở bước 4.
+3. Có thể nhập **Tên thiết bị**. Nếu muốn gửi GPS, chọn **Kèm vị trí hiện tại**, cho phép trong trình duyệt rồi xem vị trí/sai số. Từ chối GPS vẫn chia sẻ được thống kê và thời gian. Không lấy vị trí khi mở app hoặc theo dõi liên tục.
+4. Bấm **Bật chia sẻ** hoặc **Lưu & gửi lựa chọn**. Thống kê, thời gian, tên nhập vào/tên tài khoản đang đăng nhập và vị trí đã chọn được lưu trong cùng một thao tác. Đợi trạng thái gửi thành công.
+5. Tắt công tắc để ngừng gửi mới ngay. Muốn bỏ GPS trên dashboard: bỏ chọn vị trí rồi lưu khi đang bật chia sẻ. Muốn xóa tất cả dữ liệu đã gửi: mở **Quản lý dữ liệu đã gửi → Ngừng & xóa dữ liệu đã gửi**. Lịch sử tại máy và tài khoản vẫn giữ.
 
+Mặc định tắt. Người đã dùng phiên bản cũ giữ nguyên lựa chọn hiện có; không tự bật thu thời gian/GPS khi nâng cấp. Muốn áp dụng lựa chọn chung mới phải bấm lưu. Các thay đổi của phiên đang chia sẻ được lưu trên máy và thử gửi lại khi có mạng. Đăng nhập hoặc đổi tên tài khoản không tự gửi tên mới; lưu biểu mẫu chia sẻ để cập nhật.
 
+Group 4 nhận tổng hợp lượt nghỉ, giây nghỉ, ngày ngoài trời từ lịch sử, số giây app hiển thị từ lúc đồng ý, cùng thông tin tùy chọn. Không gửi nội dung màn hình hay thời điểm từng lần nghỉ. Thời gian chạy nền, máy ngủ và khoảng đồng hồ hệ thống nhảy không được cộng vào thời gian dùng. Có thể thiếu vài giây khi đóng đột ngột. Bật chia sẻ không tự tạo check-in và không đổi nghĩa của ngày hoạt động.
 
-## 9. Tài khoản tùy chọn, tên thiết bị và GPS (Web/PWA 3.3)
+Mỗi thiết bị/trình duyệt có mã riêng. Xóa dữ liệu trang làm mất lịch sử và khóa để quản lý dữ liệu đã gửi; hãy ngừng và xóa chia sẻ trước nếu cần. Windows EXE v3 tiếp tục dùng biểu mẫu chia sẻ cũ.
 
-- Bấm **Đăng nhập** trên đầu trang. Chọn **Tạo tài khoản**, điền tên đăng nhập, tên hiển thị, mật khẩu 12–128 ký tự và đồng ý lưu tài khoản. Tên đăng nhập không dấu, gồm 3–32 chữ/số/gạch dưới; không dùng group4 hoặc admin. Không yêu cầu email. Chưa hỗ trợ quên mật khẩu qua email, nên lưu mật khẩu trong trình quản lý mật khẩu của bạn.
-- Muốn dùng ngay: đóng hộp đăng nhập hoặc chọn **Tiếp tục không đăng nhập**. Đồng hồ, lịch sử, check-in, sao lưu và chia sẻ tự nguyện vẫn dùng được.
-- Sau đăng nhập, bấm **Xin chào, …** để đổi tên hoặc đăng xuất. Tài khoản không tự bật chia sẻ, không tự lấy GPS và chưa đồng bộ lịch sử giữa các máy. Đóng/tải lại trang cần đăng nhập lại; phiên người dùng tối đa một giờ.
-- Đặt tên thiết bị: vào **Cài đặt → Thiết bị của bạn**, nhập ví dụ “Laptop của Mẫn”. Trình duyệt không đọc được tên máy tính thực.
-- Muốn chia sẻ GPS: bấm **Lấy vị trí hiện tại**, cho phép trong trình duyệt, xem tọa độ, thời gian và sai số. Chưa có gì được gửi ở bước xem trước. Bạn có thể từ chối quyền hoặc chỉ chia sẻ tên.
-- Bật chia sẻ thống kê ở phía trên, đánh dấu đồng ý chia sẻ thông tin rồi bấm **Lưu & gửi thông tin**. Tên tài khoản đang đăng nhập (nếu có) được kèm ở lần lưu này; đăng nhập/đổi tên riêng không tự sửa thông tin trên dashboard.
-- Bỏ GPS: **Bỏ vị trí khỏi bản nháp → Lưu & gửi thông tin**. Bỏ cả tên/GPS: bỏ dấu đồng ý riêng rồi lưu. Giữ bật chia sẻ tới khi thông báo gửi thành công. Khi offline, thay đổi chờ gửi lại.
-- Muốn ngừng và xóa toàn bộ thống kê, tên/vị trí đã gửi, chọn **Xóa thống kê đã gửi**. Lịch sử tại máy vẫn giữ. Thao tác này không xóa tài khoản đăng nhập.
-- Bấm **Đăng nhập** trên app, nhập tài khoản **group4** và mật khẩu quản trị: app chuyển thẳng vào dashboard. Tài khoản người dùng cũng dùng nút Đăng nhập này và ở lại app. Mỗi lần mở/tải lại trang phải đăng nhập; tự khóa sau 10 phút không thao tác và hết hạn sau tối đa 30 phút.
+## 9. Đăng nhập tùy chọn
 
-Tên là do người dùng tự khai. GPS có thể gần đúng, đặc biệt trên máy tính; không theo dõi liên tục. Cơ chế quyền dựa trên [Geolocation của trình duyệt](https://developer.mozilla.org/en-US/docs/Web/API/Geolocation/getCurrentPosition). Các tính năng mới ở bản Web/PWA trên Windows, macOS và điện thoại; bản Windows EXE v3 cũ vẫn gửi thống kê theo cách cũ.
+Bấm **Đăng nhập** ở đầu trang để đăng nhập hoặc tạo tài khoản với tên hiển thị. Không cần email. Mật khẩu người dùng mới dài 12–128 ký tự; tên đăng nhập gồm 3–32 chữ/số/gạch dưới. Chưa có khôi phục mật khẩu qua email. Không đăng nhập vẫn dùng đầy đủ đồng hồ, lịch sử, check-in và chia sẻ tự nguyện.
 
-## 10. Chia sẻ thời gian sử dụng app
+Tài khoản **group4** được xác thực rồi chuyển thẳng tới dashboard; tài khoản người dùng ở lại app. Người dùng đổi tên tại **Xin chào, …**; tên trên dashboard cập nhật sau khi lưu lại biểu mẫu chia sẻ. Đăng xuất không xóa lịch sử hoặc tự tắt chia sẻ đang bật.
 
-Vào **Cài đặt**, bật chia sẻ thống kê rồi tích **Tôi đồng ý chia sẻ thời gian sử dụng app với Group 4**. Tùy chọn mới mặc định tắt, kể cả với người đã chia sẻ thống kê trước đây. Chỉ ghi từ lúc đồng ý; không ước lượng ngược lịch sử cũ.
-
-App cộng số giây theo ngày khi trang đang hiển thị và cửa sổ này giữ quyền chạy app. Chuyển tab, thu nhỏ, đóng app, khoảng ngủ máy hoặc đồng hồ hệ thống nhảy sẽ không được tính. Đây là thời gian app hiển thị, không chứng minh người dùng liên tục tương tác. Không thu nội dung màn hình hay lịch sử thao tác. Việc ghi thời gian không tạo check-in và không đổi cách tính ngày hoạt động cũ.
-
-Dữ liệu lưu trên thiết bị khoảng mỗi 5 giây, gửi cùng thống kê khi có mạng khoảng mỗi 30 giây; có thể thiếu vài giây khi đóng đột ngột. Tắt lựa chọn để ngừng ghi mới. **Xóa thống kê đã gửi** xóa cả thời gian trên máy chủ và ngừng chia sẻ; lịch sử nghỉ mắt tại máy vẫn giữ.
-
-Dashboard có **Thời gian sử dụng app**, cột thời gian từng thiết bị và bảng theo ngày; tất cả theo khoảng ngày đang chọn. CSV thêm cột UsageSeconds, bao gồm ngày có thời gian sử dụng dù chưa check-in. Có thể bấm **Xem thống kê** để tải số liệu mới nhất.
+Mở lại/tải lại trang quản trị cần đăng nhập. Phiên quản trị tự khóa sau 10 phút không thao tác, tối đa 30 phút. Tài khoản người dùng được giữ trong bộ nhớ trang, tối đa một giờ; không lưu mật khẩu trong app. Tính năng tài khoản chưa hợp nhất lịch sử giữa các máy.

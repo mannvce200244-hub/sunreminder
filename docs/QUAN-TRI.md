@@ -89,3 +89,11 @@ Bản này dùng SQLite cho nhóm nhỏ và một server. Không triển khai v�
 Trang chính chỉ có nút **Đăng nhập**. Tài khoản **group4** được máy chủ xác thực rồi chuyển vào dashboard; tài khoản người dùng vào app. Không chọn vai trò ở giao diện. Chuyển trang dùng cookie HttpOnly giới hạn 60 giây, được đổi đúng một lần lấy phiên trong bộ nhớ. Đây không phải cookie nhớ đăng nhập: tải lại dashboard sau khi đã nhận phiên cần đăng nhập lại. Đường dẫn /admin vẫn có biểu mẫu khi mở trực tiếp.
 
 Thời gian sử dụng là số giây app hiển thị, chỉ ghi sau khi người dùng đồng ý riêng. Xem tổng thời gian, từng thiết bị, theo ngày hoặc CSV trong cùng khoảng ngày. Số ngày có check-in vẫn giữ nghĩa cũ; mở app không tự tạo check-in. Thời gian cộng theo thiết bị, chưa hợp nhất một người dùng nhiều máy.
+
+## Công cụ dữ liệu và chia sẻ Web/PWA 3.5
+
+Người dùng lưu thống kê, thời gian và thông tin tùy chọn trong một biểu mẫu. GPS chỉ được lấy khi chọn và cấp quyền, rồi gửi khi lưu. Người dùng cũ không bị tự bật thêm thu thập.
+
+Dashboard giữ nút **Xuất CSV** theo bộ lọc ngày. Mở **Công cụ dữ liệu** để tải báo cáo JSON hoặc sao lưu/nhập JSON lịch sử trên trình duyệt đang mở. Mỗi thao tác kiểm tra lại phiên với máy chủ; phiên hết hạn không được tải/nhập. Đóng các cửa sổ app người dùng trước khi nhập để tránh ghi đè đồng thời. File được kiểm tra, hiển thị số bản ghi và có bước xác nhận; tự tải bản sao hiện tại trước khi gộp.
+
+JSON báo cáo là dữ liệu tổng hợp theo khoảng ngày, không nhập vào lịch sử. JSON thiết bị chỉ chứa lịch sử/cài đặt trên thiết bị quản trị, không chứa token, mật khẩu hay dữ liệu cục bộ của các thiết bị khác. Các công cụ này không thay thế sao lưu D1/SQLite toàn hệ thống.

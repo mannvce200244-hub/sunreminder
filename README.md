@@ -1,4 +1,4 @@
-# SunReminder 3.0 · Nắng sớm, mắt khỏe
+# SunReminder · Web/PWA 3.5 và Windows v3
 
 Ứng dụng nhắc nghỉ mắt của **Group 4**, giao diện tiếng Việt nền kem và xanh lá, dùng trên Windows hoặc trình duyệt máy tính/điện thoại.
 
@@ -15,7 +15,7 @@ Mở **[Releases — SunReminder v3.0.0](https://github.com/mannvce200244-hub/su
 - **Windows:** mở `App-v3/SunReminder.exe` hoặc `Launch-SunReminder.cmd`. Thoát bản cũ trong khay hệ thống trước. Bản mới tiếp tục dùng dữ liệu hiện có của cùng tài khoản Windows.
 - **Web + quản trị:** cài Node.js 24 LTS, bấm `Start-Group4.cmd`. Mở `http://localhost:4173`; Group 4 đăng nhập tại `http://localhost:4173/admin`. Tài khoản được tạo riêng trên máy, xem `web/server-data/ADMIN-LOGIN.txt`.
 - **Mac:** chạy `sh Start-Web.command`; dùng bản web/PWA. Không chạy EXE Windows trên Mac.
-- **Điện thoại:** mở địa chỉ HTTPS sau khi triển khai, thêm app vào màn hình chính. Gói này chưa được đăng lên mạng hay các cửa hàng ứng dụng.
+- **Điện thoại:** mở địa chỉ HTTPS sau khi triển khai, thêm app vào màn hình chính. Bản online tại https://sunreminder.group4-ssg105.workers.dev/; chưa phát hành trên các cửa hàng ứng dụng.
 
 **[Hướng dẫn sử dụng](docs/HUONG-DAN.md)** · **[Quản trị và đưa lên mạng](docs/QUAN-TRI.md)** · **[Kiểm thử v3](docs/QA-v3.md)**
 
@@ -65,3 +65,7 @@ Bản 3.3 dùng một nút đăng nhập chung: group4 chuyển thẳng dashboar
 ### Web/PWA 3.4 — nhắc khi chạy nền
 
 Trong Cài đặt, chọn **Bật nhắc khi chạy nền**, cấp quyền, rồi bắt đầu phiên. Cloudflare Durable Object lưu đăng ký thông báo và lịch hiện tại, gửi Web Push mã hóa khi hết giờ; tạm dừng/kết thúc gửi hủy lịch. Không tự bật chia sẻ thống kê/GPS. iPhone/iPad cần cài vào Màn hình chính (iOS/iPadOS 16.4 trở lên). Thông báo có thể trễ do hệ điều hành, mạng hoặc Không làm phiền. Xem [hướng dẫn](docs/HUONG-DAN.md) và [kiểm chứng 3.4](docs/QA-v3.4.md).
+
+### Web/PWA 3.5 — chia sẻ gọn hơn
+
+Một biểu mẫu chung cho thống kê, thời gian app hiển thị, tên và GPS tùy chọn; một nút lưu. Không tự mở rộng lựa chọn của người dùng cũ. Giao diện người dùng tập trung vào Lịch sử với nút Xem thêm; JSON/CSV chuyển sang quản trị có kiểm tra phiên. Báo cáo JSON tổng hợp khác với sao lưu JSON lịch sử tại thiết bị, không phải bản sao database. Xem [kiểm chứng 3.5](docs/QA-v3.5.md).

@@ -43,7 +43,7 @@ async function report(cookie, range = '') {
 
 test('static app and admin are served; generated package excludes private/server files', async () => {
   const publicFiles = await readdir(new URL('../public/', import.meta.url));
-  assert.equal(publicFiles.length, 23);
+  assert.equal(publicFiles.length, 24);
   assert.ok(!publicFiles.some(name => /backend|server|password|sqlite/.test(name)));
   const app = await mf.dispatchFetch(origin + '/');
   assert.equal(app.status, 200); assert.match(await app.text(), /SunReminder/);

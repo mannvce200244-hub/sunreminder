@@ -19,7 +19,7 @@ Kết nối kho GitHub `mannvce200244-hub/sunreminder`, nhánh `main`. Mã ngu�
 
 Chọn gói Workers Free. Bấm Deploy và chờ build hoàn tất. Gói miễn phí có hạn mức; kiểm tra bảng Usage trên tài khoản khi dùng thật.
 
-Wrangler đã được cố định phiên bản trong package-lock.json. Build chỉ chép 23 file giao diện được cho phép vào thư mục công khai, không chép mật khẩu, SQLite hay mã nguồn máy chủ. Cấu hình D1 có binding `DB`; Wrangler hỗ trợ tự tạo database `sunreminder-db` khi triển khai lần đầu và liên kết lại ở các lần triển khai tiếp theo. Không cần tự tạo bảng SQL: Worker tạo bảng rỗng khi API được sử dụng lần đầu sau khi có mật khẩu.
+Wrangler đã được cố định phiên bản trong package-lock.json. Build chỉ chép 24 file giao diện được cho phép vào thư mục công khai, không chép mật khẩu, SQLite hay mã nguồn máy chủ. Cấu hình D1 có binding `DB`; Wrangler hỗ trợ tự tạo database `sunreminder-db` khi triển khai lần đầu và liên kết lại ở các lần triển khai tiếp theo. Không cần tự tạo bảng SQL: Worker tạo bảng rỗng khi API được sử dụng lần đầu sau khi có mật khẩu.
 
 Nguồn: [Workers Builds](https://developers.cloudflare.com/workers/ci-cd/builds/configuration/), [tự tạo D1](https://developers.cloudflare.com/changelog/post/2025-10-24-automatic-resource-provisioning/).
 
@@ -100,3 +100,7 @@ Bản 3.3 bổ sung bảng usage_daily và admin_transfers tự động, không 
 Máy chủ tạo và giữ cặp khóa VAPID trong Durable Object riêng khi gọi `/api/push/key` lần đầu. API chỉ trả khóa công khai; không đặt khóa riêng vào JavaScript hay Git. Không xóa/reset Durable Object giữ khóa, vì đăng ký Web Push cũ sẽ không còn tương thích. Lịch theo mã bí mật thiết bị, có revision để hủy lịch mới thắng yêu cầu cũ; đăng ký được xóa khỏi job sau khi gửi/hủy. Lỗi tạm thời thử lại tối đa hai lần, không gửi thông báo quá cũ.
 
 Sau deploy: `/api/config` phải có `backgroundPush: true`, `/api/push/key` trả duy nhất `publicKey`. Trên thiết bị thử, bật quyền trong Cài đặt, bấm Nghỉ ngay, chờ Máy chủ đã nhận lịch và chuyển ứng dụng để kiểm tra thông báo hết 20 giây. Mở lại phải có đúng một check-in. Thử lại với Tạm dừng/Kết thúc và kiểm tra không còn lịch nhắc. Cần thử riêng Android, iPhone PWA, Windows/Mac vì quyền và chính sách chạy nền khác nhau.
+
+## Web/PWA 3.5
+
+Không đổi schema D1 hay quyền tài khoản. Thêm admin-data.js vào danh sách file công khai, nhưng thao tác công cụ kiểm tra phiên quản trị qua API trước khi đọc/ghi dữ liệu. Service worker không lưu admin-data.js trong cache ngoại tuyến. Khóa VAPID được giữ nguyên, URL liên hệ cập nhật sang tên miền group4-ssg105.

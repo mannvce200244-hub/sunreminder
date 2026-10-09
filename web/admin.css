@@ -4,3 +4,5 @@
 .device-name{min-width:160px;overflow-wrap:anywhere}.device-name small,.device-location small{display:block;font-size:11px;color:var(--muted);margin-top:6px}.device-location{min-width:210px}.device-location a{display:block;margin-top:8px;font-size:12px}
 
 @media(min-width:1000px){.metric-grid{grid-template-columns:repeat(5,minmax(0,1fr))}}#metric-usage{font-size:25px;letter-spacing:-.5px;line-height:1.5}
+
+.admin-data>summary{padding:0;font-size:16px}.admin-data[open]>summary{margin-bottom:20px}.admin-data h3{font-size:15px;margin-top:22px}.admin-data p{padding:0;margin:10px 0 16px}.admin-data .notice{margin-top:16px}.admin-data .button-row{flex-wrap:wrap}
