@@ -1,6 +1,6 @@
 {
   "name": "sunreminder-cloudflare",
-  "version": "3.3.0",
+  "version": "3.4.0",
   "private": true,
   "type": "module",
   "engines": {
@@ -8,13 +8,17 @@
   },
   "scripts": {
     "build": "node cloudflare/build.mjs",
-    "test": "npm run build && node --test web/tests/*.test.mjs cloudflare/tests/*.test.mjs",
+    "test": "npm run build && node cloudflare/test-build.mjs && node --test web/tests/*.test.mjs cloudflare/tests/*.test.mjs",
     "dev": "npm run build && wrangler dev",
     "deploy": "wrangler deploy",
     "check:deploy": "npm run build && wrangler deploy --dry-run"
   },
   "devDependencies": {
     "miniflare": "4.20260730.0",
-    "wrangler": "4.148.0"
+    "wrangler": "4.148.0",
+    "esbuild": "0.28.1"
+  },
+  "dependencies": {
+    "@block65/webcrypto-web-push": "2.0.0"
   }
 }

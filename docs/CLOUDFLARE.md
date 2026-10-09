@@ -19,7 +19,7 @@ Kết nối kho GitHub `mannvce200244-hub/sunreminder`, nhánh `main`. Mã ngu�
 
 Chọn gói Workers Free. Bấm Deploy và chờ build hoàn tất. Gói miễn phí có hạn mức; kiểm tra bảng Usage trên tài khoản khi dùng thật.
 
-Wrangler đã được cố định phiên bản trong package-lock.json. Build chỉ chép 21 file giao diện được cho phép vào thư mục công khai, không chép mật khẩu, SQLite hay mã nguồn máy chủ. Cấu hình D1 có binding `DB`; Wrangler hỗ trợ tự tạo database `sunreminder-db` khi triển khai lần đầu và liên kết lại ở các lần triển khai tiếp theo. Không cần tự tạo bảng SQL: Worker tạo bảng rỗng khi API được sử dụng lần đầu sau khi có mật khẩu.
+Wrangler đã được cố định phiên bản trong package-lock.json. Build chỉ chép 23 file giao diện được cho phép vào thư mục công khai, không chép mật khẩu, SQLite hay mã nguồn máy chủ. Cấu hình D1 có binding `DB`; Wrangler hỗ trợ tự tạo database `sunreminder-db` khi triển khai lần đầu và liên kết lại ở các lần triển khai tiếp theo. Không cần tự tạo bảng SQL: Worker tạo bảng rỗng khi API được sử dụng lần đầu sau khi có mật khẩu.
 
 Nguồn: [Workers Builds](https://developers.cloudflare.com/workers/ci-cd/builds/configuration/), [tự tạo D1](https://developers.cloudflare.com/changelog/post/2025-10-24-automatic-resource-provisioning/).
 
@@ -53,7 +53,7 @@ Ngày hoạt động được cộng theo từng thiết bị, không phải s�
 
 Android: mở URL HTTPS bằng Chrome, chọn Cài đặt ứng dụng/Thêm vào màn hình chính. iPhone: mở bằng Safari → Chia sẻ → Thêm vào Màn hình chính. Trên máy tính dùng tùy chọn cài app của trình duyệt khi có.
 
-Bản PWA cần mở và màn hình hoạt động để chạy đồng hồ; không bảo đảm thông báo khi app đóng hoặc màn hình khóa. Windows EXE giữ tính năng chạy nền trong khay hệ thống.
+Web/PWA 3.4 giữ đồng hồ khi ẩn app và hỗ trợ Web Push theo lựa chọn của người dùng. Thông báo cần mạng/quyền và có thể trễ do hệ điều hành. Windows EXE giữ tính năng chạy nền trong khay hệ thống.
 
 ## 5. Khắc phục lỗi
 
@@ -92,3 +92,11 @@ Tài khoản người dùng tách quyền khỏi admin. Mật khẩu người d�
 Xem [hướng dẫn người dùng](HUONG-DAN.md#9-tài-khoản-tùy-chọn-tên-thiết-bị-và-gps-webpwa-33) để thử chế độ khách, đăng ký/đăng nhập và chia sẻ vị trí có đồng ý.
 
 Bản 3.3 bổ sung bảng usage_daily và admin_transfers tự động, không cần chỉnh Secret hoặc binding. Cookie chuyển trang quản trị chỉ dùng một lần trong 60 giây; sau đó phiên quản trị chỉ còn trong bộ nhớ trang. Đồng ý chia sẻ thời gian dùng phiên bản group4-usage-v1, tách khỏi đồng ý thống kê cũ để không tự thu thêm từ người đang dùng.
+
+## Web/PWA 3.4: Web Push và lịch nhắc nền
+
+`wrangler.jsonc` bổ sung binding Durable Object **REMINDERS**, class **ReminderScheduler**, migration SQLite **reminders-v1**. Triển khai bằng build GitHub hiện có hoặc `npm run build` và `npm run deploy`; giữ binding D1 DB và Secret quản trị như cũ. Nếu token triển khai tùy chỉnh thiếu quyền Durable Objects, cần bổ sung quyền đó cho tài khoản Cloudflare. SQLite Durable Objects có trên gói Free trong hạn mức của Cloudflare, không phải sử dụng vô hạn.
+
+Máy chủ tạo và giữ cặp khóa VAPID trong Durable Object riêng khi gọi `/api/push/key` lần đầu. API chỉ trả khóa công khai; không đặt khóa riêng vào JavaScript hay Git. Không xóa/reset Durable Object giữ khóa, vì đăng ký Web Push cũ sẽ không còn tương thích. Lịch theo mã bí mật thiết bị, có revision để hủy lịch mới thắng yêu cầu cũ; đăng ký được xóa khỏi job sau khi gửi/hủy. Lỗi tạm thời thử lại tối đa hai lần, không gửi thông báo quá cũ.
+
+Sau deploy: `/api/config` phải có `backgroundPush: true`, `/api/push/key` trả duy nhất `publicKey`. Trên thiết bị thử, bật quyền trong Cài đặt, bấm Nghỉ ngay, chờ Máy chủ đã nhận lịch và chuyển ứng dụng để kiểm tra thông báo hết 20 giây. Mở lại phải có đúng một check-in. Thử lại với Tạm dừng/Kết thúc và kiểm tra không còn lịch nhắc. Cần thử riêng Android, iPhone PWA, Windows/Mac vì quyền và chính sách chạy nền khác nhau.

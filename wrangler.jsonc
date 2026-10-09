@@ -12,5 +12,26 @@
     "html_handling": "none",
     "not_found_handling": "none"
   },
-  "d1_databases": [{ "binding": "DB", "database_name": "sunreminder-db" }]
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "sunreminder-db"
+    }
+  ],
+  "durable_objects": {
+    "bindings": [
+      {
+        "name": "REMINDERS",
+        "class_name": "ReminderScheduler"
+      }
+    ]
+  },
+  "migrations": [
+    {
+      "tag": "reminders-v1",
+      "new_sqlite_classes": [
+        "ReminderScheduler"
+      ]
+    }
+  ]
 }

@@ -5,7 +5,7 @@ import path from 'node:path';
 import { createBackend } from './backend.mjs';
 const root=fileURLToPath(new URL('.',import.meta.url));
 const types={'.html':'text/html; charset=utf-8','.js':'text/javascript; charset=utf-8','.css':'text/css; charset=utf-8','.svg':'image/svg+xml','.png':'image/png','.webmanifest':'application/manifest+json'};
-const allowed=new Set(['index.html','app.js','engine.js','data.js','analytics.js','sharing.js','profile.js','profile-ui.js','user-account.js','usage.js','admin-session.js','styles.css','sw.js','manifest.webmanifest','icon.svg','icon-192.png','icon-512.png','apple-touch-icon.png','admin.html','admin.js','admin.css']);
+const allowed=new Set(['index.html','app.js','engine.js','data.js','analytics.js','sharing.js','profile.js','profile-ui.js','user-account.js','usage.js','background.js','notification-store.js','admin-session.js','styles.css','sw.js','manifest.webmanifest','icon.svg','icon-192.png','icon-512.png','apple-touch-icon.png','admin.html','admin.js','admin.css']);
 export function createAppServer({dataDir=path.join(root,'server-data'),origin='http://localhost:4173',adminPassword}={}){
   const base=new URL(origin);if(base.pathname!=='/'||base.search||base.hash||base.username||base.password)throw new Error('PUBLIC_ORIGIN phải là gốc tên miền.');
   if(base.protocol!=='https:'&&!['localhost','127.0.0.1','[::1]'].includes(base.hostname))throw new Error('Máy chủ công khai cần HTTPS.');

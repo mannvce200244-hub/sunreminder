@@ -1,3 +1,4 @@
+import { BackgroundReminders, TIMER_KEY, workerMessage } from './background.js';
 import { UsageTracker, formatUsage } from './usage.js';
 import { mountAccount } from './user-account.js';
 import { mountProfile } from './profile-ui.js';
@@ -9,8 +10,9 @@ document.querySelectorAll('nav a').forEach(link => link.setAttribute('aria-label
 let data = defaults(), storageBlocked = false, ownsApp = false, preview = false, installPrompt, toastTimeout, audio;
 const engine = new ReminderEngine();
 const form = $('settings-form');
-let lastTick = Date.now(), currentDay = dayKey(), previousState;
-let sharing;
+let currentDay = dayKey(), previousState;
+let sharing, background;
+let timerRestored=false;
 function toast(message) { $('toast').textContent=message; $('toast').hidden=false;clearTimeout(toastTimeout);toastTimeout=setTimeout(()=>$('toast').hidden=true,5500); }
 function storageWarning(message) { $('storage-warning').textContent=message;$('storage-warning').hidden=false; }
 try { const saved=localStorage.getItem(STORAGE_KEY);if(saved) data=validateData(JSON.parse(saved)); }
@@ -72,7 +74,15 @@ window.addEventListener('hashchange',()=>{navigate();const heading=document.quer
 let audioReady = false;
 function prepareAudio(){try{if(!audio)audio=new (window.AudioContext||window.webkitAudioContext)();if(audio.state==='suspended')void audio.resume().catch(()=>{});audioReady=true;}catch{}}
 function chime(){if(!data.Settings.Sound||!audioReady||!audio)return;try{const tone=audio.createOscillator(),gain=audio.createGain();tone.type='sine';tone.frequency.setValueAtTime(660,audio.currentTime);gain.gain.setValueAtTime(.05,audio.currentTime);gain.gain.exponentialRampToValueAtTime(.001,audio.currentTime+.6);tone.connect(gain).connect(audio.destination);tone.start();tone.stop(audio.currentTime+.6);}catch{}}
-async function notify(title,body){if(!('Notification'in window)||Notification.permission!=='granted')return;try{if('serviceWorker'in navigator&&navigator.serviceWorker.controller){const reg=await navigator.serviceWorker.ready;await reg.showNotification(title,{body,icon:'icon-192.png',tag:'sunreminder',silent:true});}else new Notification(title,{body,icon:'icon-192.png',silent:true});}catch{toast('Thông báo thiết bị chưa khả dụng. Lời nhắc trong app vẫn hoạt động.');}}
+async function notify(title,body,notice=null){
+  if(!('Notification'in window)||Notification.permission!=='granted')return;
+  if(notice&&Date.now()>notice.deadline+300000)return;
+  if(notice){try{await workerMessage({type:'SUN_LOCAL_NOTICE',notice:{...notice,sound:data.Settings.Sound}});return;}catch{}}
+  try{const options={body,icon:'icon-192.png',tag:notice?'sun-'+notice.id:'sunreminder',silent:!document.hidden||!data.Settings.Sound,data:{url:location.origin+'/#focus'}};
+    if('serviceWorker'in navigator&&navigator.serviceWorker.controller){const reg=await navigator.serviceWorker.ready;await reg.showNotification(title,options);}
+    else {const n=new Notification(title,options);n.onclick=()=>{window.focus();location.hash='focus';n.close();};}
+  }catch{toast('Thông báo thiết bị chưa khả dụng. Lời nhắc trong app vẫn hoạt động.');}
+}
 function closeReminder(){if($('reminder-dialog').open)$('reminder-dialog').close();preview=false;}
 function showReminder(isPreview=false){closeReminder();preview=isPreview;$('reminder-title').textContent=isPreview?'Đây là lời nhắc thử':'Cho đôi mắt chút thảnh thơi';$('break-time').textContent=clockText(data.Settings.BreakSeconds);$('begin-break').textContent=isPreview?'Đóng bản thử':'Bắt đầu nghỉ';$('begin-break').disabled=false;$('later-break').hidden=isPreview;$('later-break').textContent=`Hoãn ${data.Settings.SnoozeMinutes} phút`;$('reminder-foot').textContent=isPreview?'Bản thử không đổi đồng hồ và không ghi lịch sử.':'Đóng cửa sổ sẽ hoãn lời nhắc, không ghi hoàn thành.';$('reminder-dialog').showModal();renderClock();}
 function startBreak(){prepareAudio();engine.startBreak();if(data.Settings.Popups)showReminder();renderClock();}
@@ -81,12 +91,12 @@ function dismissReminder(){if(preview)closeReminder();else postpone();}
 $('primary').addEventListener('click',()=>{prepareAudio();switch(engine.state){case 'Idle':engine.start();break;case 'Paused':engine.resume();if(engine.state==='Breaking'&&data.Settings.Popups)showReminder();break;case 'Due':startBreak();break;default:engine.pause();closeReminder();}renderClock();});
 $('rest-now').addEventListener('click',startBreak);$('snooze').addEventListener('click',postpone);$('stop').addEventListener('click',()=>{engine.stop();closeReminder();renderClock();toast('Đã kết thúc phiên. Bắt đầu lại khi bạn sẵn sàng.');});
 $('begin-break').addEventListener('click',()=>{if(preview)closeReminder();else {engine.startBreak();renderClock();}});$('later-break').addEventListener('click',postpone);$('close-reminder').addEventListener('click',dismissReminder);$('reminder-dialog').addEventListener('cancel',e=>{e.preventDefault();dismissReminder();});
-engine.onDue=()=>{chime();void notify('Đến giờ nghỉ mắt',`Dành ${data.Settings.BreakSeconds} giây nhìn ra xa. Mở SunReminder khi bạn sẵn sàng.`);if(data.Settings.Popups)showReminder();else toast('Đến giờ nghỉ mắt. Bấm Bắt đầu nghỉ khi bạn sẵn sàng.');};
-engine.onComplete=seconds=>{closeReminder();const next=structuredClone(data);next.Breaks.push({CompletedAt:new Date().toISOString(),DurationSeconds:seconds});const saved=persist(next);if(!saved)data=next;renderStats();renderHistory();toast(saved?'Đã check-in nghỉ mắt! Nhịp tập trung mới bắt đầu.':'Đã nghỉ xong nhưng chưa lưu được check-in. Hãy sao lưu trước khi đóng app.');};
+engine.onDue=()=>{if(!document.hidden)chime();void notify('Đến giờ nghỉ mắt',`Dành ${data.Settings.BreakSeconds} giây nhìn ra xa. Mở SunReminder khi bạn sẵn sàng.`,{id:engine.phaseId,kind:'due',deadline:engine.deadline*1000});if(data.Settings.Popups&&!document.hidden)showReminder();else toast('Đến giờ nghỉ mắt. Bấm Bắt đầu nghỉ khi bạn sẵn sàng.');};
+engine.onComplete=(seconds,completion)=>{closeReminder();if(data.Breaks.some(r=>r.SessionId===completion.id))return;const next=structuredClone(data);next.Breaks.push({CompletedAt:completion.completedAt,DurationSeconds:seconds,SessionId:completion.id});void notify('Đã hết giờ nghỉ mắt','Mở SunReminder để xem check-in.',{id:completion.id,kind:'complete',deadline:Date.parse(completion.completedAt)});const saved=persist(next);if(!saved)data=next;renderStats();renderHistory();toast(saved?'Đã check-in nghỉ mắt! Nhịp tập trung mới bắt đầu.':'Đã nghỉ xong nhưng chưa lưu được check-in. Hãy sao lưu trước khi đóng app.');};
 $('outdoor').addEventListener('click',()=>{const next=structuredClone(data),today=dayKey();const done=next.OutdoorDays.includes(today);next.OutdoorDays=done?next.OutdoorDays.filter(d=>d!==today):[...next.OutdoorDays,today];if(persist(next)){renderStats();renderHistory();toast(done?'Đã bỏ check-in hôm nay.':'Đã ghi lại một khoảng trời cho hôm nay!');}});
 form.elements.MorningReminder.addEventListener('change',()=>form.elements.MorningTime.disabled=!form.elements.MorningReminder.checked);
-form.addEventListener('submit',e=>{e.preventDefault();if(!form.reportValidity())return;const next=structuredClone(data),p=next.Settings;for(const key of ['IntervalMinutes','BreakSeconds','SnoozeMinutes'])p[key]=Number(form.elements[key].value);for(const key of ['Popups','Sound','MorningReminder'])p[key]=form.elements[key].checked;[p.MorningHour,p.MorningMinute]=form.elements.MorningTime.value.split(':').map(Number);try{validateData(next);}catch(error){toast(error.message);return;}const timing=['IntervalMinutes','BreakSeconds','SnoozeMinutes'].some(k=>p[k]!==data.Settings[k]);if(!persist(next))return;if(timing){engine.configure(p.IntervalMinutes,p.BreakSeconds,p.SnoozeMinutes);closeReminder();}if(!p.Popups)closeReminder();if(p.Sound)prepareAudio();$('save-feedback').textContent=timing?'Đã lưu. Chu kỳ hiện tại đã được đặt lại.':'Đã lưu cài đặt của bạn.';toast($('save-feedback').textContent);renderClock();});
-function notificationStatus(){const supported='Notification'in window;$('notification-status').textContent=!supported?'Trình duyệt này chưa hỗ trợ thông báo thiết bị. Hãy dùng cửa sổ nhắc trong app.':Notification.permission==='granted'?'Đã cấp quyền thông báo. Hãy giữ app mở; không có thông báo đẩy khi app đóng.':Notification.permission==='denied'?'Thông báo đang bị chặn. Bạn có thể đổi quyền trong cài đặt của trình duyệt.':'Thông báo thiết bị là tùy chọn; cửa sổ nhắc vẫn dùng được khi chưa cấp quyền.';$('notification-permission').disabled=!supported||Notification.permission==='granted'||Notification.permission==='denied';}
+form.addEventListener('submit',e=>{e.preventDefault();if(!form.reportValidity())return;const next=structuredClone(data),p=next.Settings;for(const key of ['IntervalMinutes','BreakSeconds','SnoozeMinutes'])p[key]=Number(form.elements[key].value);for(const key of ['Popups','Sound','MorningReminder'])p[key]=form.elements[key].checked;[p.MorningHour,p.MorningMinute]=form.elements.MorningTime.value.split(':').map(Number);try{validateData(next);}catch(error){toast(error.message);return;}const timing=['IntervalMinutes','BreakSeconds','SnoozeMinutes'].some(k=>p[k]!==data.Settings[k]);if(!persist(next))return;if(timing){engine.configure(p.IntervalMinutes,p.BreakSeconds,p.SnoozeMinutes);closeReminder();}engine.onChange?.();if(!p.Popups)closeReminder();if(p.Sound)prepareAudio();$('save-feedback').textContent=timing?'Đã lưu. Chu kỳ hiện tại đã được đặt lại.':'Đã lưu cài đặt của bạn.';toast($('save-feedback').textContent);renderClock();});
+function notificationStatus(){const supported='Notification'in window;$('notification-status').textContent=!supported?'Trình duyệt này chưa hỗ trợ thông báo thiết bị. Hãy dùng cửa sổ nhắc trong app.':Notification.permission==='granted'?'Đã cấp quyền thông báo. Bật nhắc khi chạy nền bên dưới để nhận nhắc từ máy chủ.':Notification.permission==='denied'?'Thông báo đang bị chặn. Bạn có thể đổi quyền trong cài đặt của trình duyệt.':'Thông báo thiết bị là tùy chọn; cửa sổ nhắc vẫn dùng được khi chưa cấp quyền.';$('notification-permission').disabled=!supported||Notification.permission==='granted'||Notification.permission==='denied';}
 $('notification-permission').addEventListener('click',async()=>{try{await Notification.requestPermission();notificationStatus();}catch{toast('Không thể yêu cầu quyền ở trình duyệt này.');}});
 $('test-notification').addEventListener('click',()=>{prepareAudio();chime();showReminder(true);void notify('Thông báo thử SunReminder','Bản thử không thay đổi chu kỳ và lịch sử.');});
 function download(content,name,type){const url=URL.createObjectURL(new Blob([content],{type}));const a=document.createElement('a');a.href=url;a.download=name;document.body.append(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),30000);}
@@ -106,12 +116,12 @@ window.addEventListener('appinstalled',()=>{toast('SunReminder đã có trên th
 const mobileInstall=document.createElement('button');mobileInstall.className='btn secondary';mobileInstall.type='button';mobileInstall.textContent='Cài trên thiết bị';mobileInstall.addEventListener('click',()=>$('install').click());$('page-guide').append(mobileInstall);
 document.addEventListener('visibilitychange',()=>{
   if(!ownsApp)return;
-  if(document.hidden){engine.suspend();closeReminder();}
-  else{const restart=engine.restartAfterSleep;engine.wake();lastTick=Date.now();if(restart)toast('Chào bạn trở lại. Mình bắt đầu một nhịp tập trung mới.');renderClock();renderStats();}
+  engine.tick();background?.update(engine,data.Settings.Sound);
+  if(!document.hidden){renderClock();renderStats();if(engine.state==='Due'&&data.Settings.Popups&&!$('reminder-dialog').open)showReminder();}
 });
 setInterval(()=>{
-  if(!ownsApp||document.hidden)return;
-  const now=Date.now();if(now-lastTick>8000){engine.suspend();engine.wake();closeReminder();}lastTick=now;engine.tick();renderClock();
+  if(!ownsApp)return;
+  engine.tick();if(document.hidden)return;renderClock();
   if(dayKey()!==currentDay){currentDay=dayKey();renderStats();renderHistory();}
   const p=data.Settings,d=new Date();if(p.MorningReminder&&d.getHours()===p.MorningHour&&d.getMinutes()===p.MorningMinute&&data.LastMorningNotification!==dayKey()){
     const next={...data,LastMorningNotification:dayKey()};if(!persist(next))data=next;toast('Một khoảng trời cho hôm nay: nếu thời tiết phù hợp, ra ngoài nơi có bóng mát nhé.');void notify('Một khoảng trời cho hôm nay','Ra ngoài nơi có bóng mát nếu thời tiết phù hợp. Không nhìn thẳng vào mặt trời.');
@@ -121,8 +131,8 @@ function connection(){ $('connection-label').textContent=navigator.onLine?'Dữ 
 window.addEventListener('online',connection);window.addEventListener('offline',connection);
 if('serviceWorker'in navigator&&window.isSecureContext){navigator.serviceWorker.register('./sw.js').then(async reg=>{await navigator.serviceWorker.ready;if(!sessionStorage.getItem('sunreminder.offline-ready')){toast('Đã sẵn sàng dùng ngoại tuyến trên thiết bị này.');sessionStorage.setItem('sunreminder.offline-ready','1');}reg.addEventListener('updatefound',()=>{const worker=reg.installing;worker?.addEventListener('statechange',()=>{if(worker.state==='installed'&&navigator.serviceWorker.controller)toast('Có phiên bản mới. Đóng hết cửa sổ SunReminder rồi mở lại để cập nhật.');});});}).catch(()=>toast('Chưa lưu được bản ngoại tuyến. App vẫn hoạt động khi có kết nối.'));}
 function otherWindow(){engine.stop();$('app-shell').inert=true;confirmActionDialog('SunReminder đang mở ở cửa sổ khác','Để tránh ghi lịch sử trùng hoặc đè dữ liệu, hãy dùng cửa sổ đang mở. Đóng cửa sổ đó rồi tải lại trang này để tiếp tục.',()=>location.reload(),'Tải lại');$('cancel-confirm').hidden=true;$('confirm-dialog').addEventListener('cancel',e=>e.preventDefault());$('accept-confirm').focus();}
-if(navigator.locks){navigator.locks.request('sunreminder-active-window',{ifAvailable:true},async lock=>{if(!lock){otherWindow();return;}ownsApp=true;await new Promise(()=>{});}).catch(()=>{storageWarning('Không khóa được phiên an toàn. Hãy đóng các cửa sổ SunReminder khác rồi tải lại.');$('app-shell').inert=true;});}
-else{ownsApp=true;storageWarning('Trình duyệt này không hỗ trợ khóa nhiều cửa sổ. Chỉ mở một cửa sổ SunReminder để tránh ghi đè lịch sử.');window.addEventListener('storage',e=>{if(e.key===STORAGE_KEY){ownsApp=false;otherWindow();}});}
+if(navigator.locks){navigator.locks.request('sunreminder-active-window',{ifAvailable:true},async lock=>{if(!lock){otherWindow();return;}ownsApp=true;restoreTimer();await new Promise(()=>{});}).catch(()=>{storageWarning('Không khóa được phiên an toàn. Hãy đóng các cửa sổ SunReminder khác rồi tải lại.');$('app-shell').inert=true;});}
+else{ownsApp=true;queueMicrotask(restoreTimer);storageWarning('Trình duyệt này không hỗ trợ khóa nhiều cửa sổ. Chỉ mở một cửa sổ SunReminder để tránh ghi đè lịch sử.');window.addEventListener('storage',e=>{if(e.key===STORAGE_KEY){ownsApp=false;otherWindow();}});}
 function sharingStatus(client){
   const s=client.state;$('sharing-status').textContent=client.message+(s.lastSync?' Lần gửi thành công: '+new Date(s.lastSync).toLocaleString('vi-VN')+'.':'');
   $('sharing-id').textContent=s.participantId?(s.profile?.deviceName?'Tên đã lưu: '+s.profile.deviceName+' · ':'')+'Mã đối chiếu: '+s.participantId.slice(-8):'Chưa gửi thống kê.';
@@ -150,6 +160,20 @@ document.addEventListener('visibilitychange',()=>{usageTracker.sample(usageEligi
 window.addEventListener('pagehide',()=>{usageTracker.sample(false);void sharing.flush();});
 window.addEventListener('pageshow',()=>usageTracker.sample(usageEligible()));
 $('usage-consent').addEventListener('change',()=>{const enabled=$('usage-consent').checked;usageTracker.sample(false);if(!sharing.setUsageEnabled(enabled))toast('Bật chia sẻ thống kê trước khi chia sẻ thời gian sử dụng.');usageTracker.sample(usageEligible());sharingStatus(sharing);});
+function backgroundStatus(client){$('background-status').textContent=client.message;$('background-enable').disabled=client.blocked||client.state.enabled;$('background-disable').disabled=!client.state.enabled;if(changingBackground){$('background-enable').disabled=true;$('background-disable').disabled=true;}}
+background=new BackgroundReminders({storage:safeStorage,onChange:backgroundStatus});
+engine.onChange=()=>{if(!ownsApp)return;try{safeStorage.setItem(TIMER_KEY,JSON.stringify(engine.snapshot()));}catch{toast('Chưa lưu được đồng hồ để mở lại. Hãy kiểm tra bộ nhớ thiết bị.');}background.update(engine,data.Settings.Sound);};
+function restoreTimer(){if(timerRestored)return;timerRestored=true;try{const saved=safeStorage.getItem(TIMER_KEY);if(saved)engine.restore(JSON.parse(saved));}catch{}engine.tick();background?.update(engine,data.Settings.Sound);renderClock();}
+let changingBackground=false;
+async function changeBackground(enable){if(!ownsApp||changingBackground)return;changingBackground=true;$('background-enable').disabled=true;$('background-disable').disabled=true;try{if(enable){await background.enable();background.update(engine,data.Settings.Sound);}else await background.disable();notificationStatus();}catch(error){background.message=error.message;toast(error.message);}finally{changingBackground=false;backgroundStatus(background);}}
+$('background-enable').addEventListener('click',()=>void changeBackground(true));
+$('background-disable').addEventListener('click',()=>void changeBackground(false));
+window.addEventListener('online',()=>{if(ownsApp){background.update(engine,data.Settings.Sound);void background.flush();}});
+setInterval(()=>{if(ownsApp)void background.flush();},30000);
+window.addEventListener('pagehide',()=>{if(ownsApp)engine.onChange();});
+window.addEventListener('pageshow',()=>{if(ownsApp){engine.tick();renderClock();}});
+navigator.serviceWorker?.addEventListener('message',event=>{if(event.data?.type==='SUN_OPEN_FOCUS')location.hash='focus';if(ownsApp&&['SUN_TIMER_WAKE','SUN_OPEN_FOCUS'].includes(event.data?.type)){engine.tick();renderClock();}});
+backgroundStatus(background);
 const account=mountAccount();
 mountProfile(sharing,account.getUser);
 fillSettings();notificationStatus();renderStats();renderHistory();renderClock();navigate();connection();

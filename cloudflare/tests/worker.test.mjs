@@ -9,8 +9,8 @@ const password = 'SunReminder-local-test-only-2026';
 const origin = 'https://sunreminder.test';
 let mf, db;
 before(async () => {
-  mf = new Miniflare({ cf: false, workers: [{ name: 'sunreminder', modules: true, modulesRules: [{type:'ESModule',include:['**/*.js'],fallthrough:true}], scriptPath: fileURLToPath(new URL('../worker.mjs', import.meta.url)),
-    compatibilityDate: '2026-08-01', d1Databases: { DB: 'test-statistics' }, bindings: { SUN_ADMIN_PASSWORD: password },
+  mf = new Miniflare({ cf: false, workers: [{ name: 'sunreminder', modules: true, modulesRules: [{type:'ESModule',include:['**/*.js'],fallthrough:true}], scriptPath: fileURLToPath(new URL('../../.wrangler/test-worker.mjs', import.meta.url)),
+    compatibilityDate: '2026-08-01', d1Databases: { DB: 'test-statistics' }, durableObjects:{REMINDERS:{className:'ReminderScheduler',useSQLite:true}}, bindings: { SUN_ADMIN_PASSWORD: password },
     serviceBindings: { ASSETS: async request => {
       try { return new Response(await readFile(new URL('../public' + new URL(request.url).pathname, import.meta.url))); }
       catch { return new Response('Not found', { status: 404 }); }
@@ -43,7 +43,7 @@ async function report(cookie, range = '') {
 
 test('static app and admin are served; generated package excludes private/server files', async () => {
   const publicFiles = await readdir(new URL('../public/', import.meta.url));
-  assert.equal(publicFiles.length, 21);
+  assert.equal(publicFiles.length, 23);
   assert.ok(!publicFiles.some(name => /backend|server|password|sqlite/.test(name)));
   const app = await mf.dispatchFetch(origin + '/');
   assert.equal(app.status, 200); assert.match(await app.text(), /SunReminder/);
@@ -165,3 +165,18 @@ const newCall=(route,{body,token,headers={}}={})=>mf.dispatchFetch(origin+route,
 test('single login routes by role and dashboard transfer is single-use on D1',async()=>{await unifiedContract(newCall,password);});
 test('consented usage totals, date filters, CSV and withdrawal work on D1',async()=>{await usageContract(newCall,await login());assert.equal((await db.prepare('SELECT COUNT(*) n FROM usage_daily').first()).n,0);});
 test('expired dashboard transfer cannot sign in',async()=>{const r=await post('/api/login',{username:'group4',password});const cookie=r.headers.get('set-cookie').split(';')[0];await db.prepare('UPDATE admin_transfers SET expires=?').bind(Date.now()-1).run();assert.equal((await post('/api/admin/claim',{}, {Cookie:cookie})).status,401);});
+
+
+test('push configuration exposes only the public key and schedules/cancels with origin and token checks',async()=>{
+ const config=await(await mf.dispatchFetch(origin+'/api/config')).json();assert.equal(config.backgroundPush,true);
+ const key=await(await mf.dispatchFetch(origin+'/api/push/key')).json();assert.deepEqual(Object.keys(key),['publicKey']);assert.match(key.publicKey,/^[A-Za-z0-9_-]{87}$/);
+ const again=await(await mf.dispatchFetch(origin+'/api/push/key')).json();assert.equal(again.publicKey,key.publicKey);
+ const token=randomBytes(32).toString('hex'),headers={Authorization:'Bearer '+token};
+ assert.equal((await post('/api/push/schedule',{revision:1,task:null})).status,401);
+ assert.equal((await post('/api/push/schedule',{revision:1,task:null},{...headers,Origin:'https://evil.test'})).status,403);
+ const subscription={endpoint:'https://fcm.googleapis.com/no-send-test',keys:{p256dh:key.publicKey,auth:randomBytes(16).toString('base64url')}};
+ const scheduled=await post('/api/push/schedule',{revision:1,task:{id:crypto.randomUUID(),kind:'due',deadline:Date.now()+3600000,sound:false},subscription},headers);
+ assert.equal(scheduled.status,200,await scheduled.clone().text());assert.equal((await scheduled.json()).scheduled,true);
+ const cancel=await post('/api/push/schedule',{revision:2,task:null},headers);assert.equal(cancel.status,200);assert.equal((await cancel.json()).scheduled,false);
+ const stale=await post('/api/push/schedule',{revision:1,task:null},headers);assert.equal((await stale.json()).stale,true);
+});

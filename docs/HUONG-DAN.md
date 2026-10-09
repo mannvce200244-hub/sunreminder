@@ -30,7 +30,7 @@ Không bấm đúp `index.html`: các module JavaScript và khả năng cài/off
 
 ### Điện thoại và cài lên màn hình chính
 
-Để dùng trên điện thoại và gửi thống kê, **triển khai máy chủ Node.js lên HTTPS với ổ dữ liệu bền vững** theo [hướng dẫn Group 4](QUAN-TRI.md). Gói này chưa có URL công khai hay bản phát hành App Store/Google Play. Người tham gia không cần tài khoản; quản trị cần đăng nhập.
+Mở [SunReminder online](https://sunreminder.mannvce200244.workers.dev/). Bản Cloudflare hỗ trợ thống kê và thông báo đẩy chạy nền; xem [hướng dẫn triển khai](CLOUDFLARE.md) nếu tự triển khai. Chưa có bản phát hành App Store/Google Play. Người tham gia không cần tài khoản; quản trị cần đăng nhập.
 
 - **Android:** mở URL HTTPS trong Chrome → menu → Cài đặt ứng dụng / Thêm vào màn hình chính.
 - **iPhone/iPad:** mở trong Safari → Chia sẻ → Thêm vào Màn hình chính.
@@ -89,13 +89,19 @@ Web lưu trong trình duyệt theo địa chỉ trang. Hai trình duyệt, hai �
 
 | Tình huống | Windows EXE | Web / ứng dụng cài từ web |
 |---|---|---|
-| Chuyển sang ứng dụng khác | Tiếp tục nhắc khi vẫn chạy trong khay | Khi trang bị ẩn, ngừng phiên đang chạy |
-| Máy ngủ hoặc khóa | Ngừng phiên; khi mở lại bắt đầu chu kỳ đầy đủ | Không bảo đảm lời nhắc nền; khi quay lại bắt đầu chu kỳ mới |
+| Chuyển sang ứng dụng khác | Tiếp tục nhắc khi vẫn chạy trong khay | Giữ thời điểm hết giờ; có thể bật thông báo đẩy |
+| Máy ngủ hoặc khóa | Ngừng phiên; khi mở lại bắt đầu chu kỳ đầy đủ | Máy chủ nhắc phiên đã đặt; mạng/hệ điều hành có thể làm trễ |
 | Đã tạm dừng bằng tay | Giữ thời gian còn lại | Giữ thời gian còn lại khi ẩn/hiện trang |
-| Thoát / tải lại | Chu kỳ không được khôi phục | Đồng hồ trở về sẵn sàng |
-| Lần nghỉ bị gián đoạn | Không ghi hoàn thành | Không ghi hoàn thành |
+| Thoát / tải lại | Chu kỳ không được khôi phục | Khôi phục đồng hồ đã lưu, xử lý một phiên hết giờ |
+| Lần nghỉ hết giờ khi app đóng | Không ghi hoàn thành | Ghi một check-in khi mở lại theo giờ kết thúc đã lưu |
 
-Bản web không có push từ server hoặc cơ chế báo thức hệ điều hành. Giữ app mở, màn hình hoạt động để bộ đếm chạy. Không coi bản PWA là ứng dụng native có hẹn giờ nền trên điện thoại.
+Web/PWA 3.4 dùng thời điểm hết giờ thực tế, không đặt lại khi chuyển tab. Để nhận thông báo khi app bị ẩn/đóng: mở **Cài đặt → Bật nhắc khi chạy nền**, cho phép thông báo, bắt đầu tập trung hoặc Nghỉ ngay và chờ trạng thái **Máy chủ đã nhận lịch**. iPhone/iPad cần iOS/iPadOS 16.4 trở lên và mở app từ Màn hình chính.
+
+Máy chủ chỉ lưu đăng ký Web Push, thời điểm và loại nhắc của phiên đã đặt, tách khỏi dữ liệu thống kê, tài khoản và GPS. Không cần đăng nhập. Không tự bật chia sẻ thời gian sử dụng; thời gian dùng vẫn chỉ tính khi app hiển thị. Tạm dừng/kết thúc gửi yêu cầu hủy lịch; **Tắt nhắc từ máy chủ** hủy lịch và đăng ký trên thiết bị. Nếu mất mạng, hủy lịch sẽ chờ gửi lại, nên lời nhắc cũ có thể vẫn đến.
+
+Cần mạng, quyền thông báo của trình duyệt và hệ điều hành. Máy tắt nguồn, trình duyệt bị buộc dừng, tiết kiệm pin hoặc Không làm phiền có thể chặn/làm trễ thông báo. Không đảm bảo như báo thức hệ điều hành. Khi app đóng, không tự tạo chuỗi nhắc vô hạn; mở lại để tiếp tục. Check-in của lần nghỉ đã hết giờ được lưu/đồng bộ khi mở lại app, không xác nhận hành vi nhìn xa. Nhắc ngoài trời buổi sáng vẫn chỉ chạy khi app hiển thị đúng giờ.
+
+Chạy bằng **Start-Web.cmd / node server.mjs** giữ đồng hồ và nhắc tại máy nhưng không có máy chủ Web Push; dùng bản Cloudflare để bật nhắc nền. Sau cập nhật, đóng hết cửa sổ SunReminder rồi mở lại để nhận bản mới, không cần xóa lịch sử.
 
 ## 6. Group 4
 
