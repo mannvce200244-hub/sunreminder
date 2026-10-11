@@ -1,4 +1,4 @@
-# SunReminder — Hướng dẫn Web/PWA 3.5 và Windows EXE v3
+# SunReminder — Hướng dẫn Web/PWA 3.6 và Windows EXE v3
 
 **Nắng sớm, mắt khỏe · Được thực hiện bởi Group 4**
 
@@ -117,19 +117,23 @@ Thông tin nhóm có trong **Về Group 4** trên Windows và **Group 4** trên 
 
 Tham khảo yêu cầu cài PWA: [MDN — Making PWAs installable](https://developer.mozilla.org/en-US/docs/Web/Progressive_web_apps/Guides/Making_PWAs_installable).
 
-## 8. Một nơi quản lý chia sẻ (Web/PWA 3.5)
+## 8. Lời mời chia sẻ khi mở app (Web/PWA 3.6)
 
-1. Mở **Cài đặt → Chia sẻ với Group 4**.
-2. Bật **Tôi đồng ý chia sẻ thống kê và thời gian sử dụng**. Chưa có dữ liệu gửi chỉ vì bật công tắc; cần nút lưu ở bước 4.
-3. Có thể nhập **Tên thiết bị**. Nếu muốn gửi GPS, chọn **Kèm vị trí hiện tại**, cho phép trong trình duyệt rồi xem vị trí/sai số. Từ chối GPS vẫn chia sẻ được thống kê và thời gian. Không lấy vị trí khi mở app hoặc theo dõi liên tục.
-4. Bấm **Bật chia sẻ** hoặc **Lưu & gửi lựa chọn**. Thống kê, thời gian, tên nhập vào/tên tài khoản đang đăng nhập và vị trí đã chọn được lưu trong cùng một thao tác. Đợi trạng thái gửi thành công.
-5. Tắt công tắc để ngừng gửi mới ngay. Muốn bỏ GPS trên dashboard: bỏ chọn vị trí rồi lưu khi đang bật chia sẻ. Muốn xóa tất cả dữ liệu đã gửi: mở **Quản lý dữ liệu đã gửi → Ngừng & xóa dữ liệu đã gửi**. Lịch sử tại máy và tài khoản vẫn giữ.
+Lần đầu mở Web/PWA, app hiện **Bạn có muốn chia sẻ cùng nhóm?** Không cần tìm mục chia sẻ trong Cài đặt. Chỉ cửa sổ đang hoạt động hiện lời mời; nếu một hộp thoại khác đang mở, app chờ hộp đó đóng.
 
-Mặc định tắt. Người đã dùng phiên bản cũ giữ nguyên lựa chọn hiện có; không tự bật thu thời gian/GPS khi nâng cấp. Muốn áp dụng lựa chọn chung mới phải bấm lưu. Các thay đổi của phiên đang chia sẻ được lưu trên máy và thử gửi lại khi có mạng. Đăng nhập hoặc đổi tên tài khoản không tự gửi tên mới; lưu biểu mẫu chia sẻ để cập nhật.
+1. Đọc những dữ liệu Group 4 nhận: lượt nghỉ, giây nghỉ, check-in ngoài trời theo ngày từ lịch sử, và thời gian app hiển thị kể từ khi đồng ý.
+2. Nếu muốn kèm GPS, chọn **Kèm vị trí hiện tại**, cho phép trong trình duyệt rồi xem vị trí và sai số. Không chọn thì không xin quyền. Từ chối GPS vẫn chia sẻ được thống kê và thời gian; không theo dõi vị trí liên tục.
+3. Có thể mở **Đặt tên thiết bị (tùy chọn)**. Tên tài khoản đang đăng nhập, nếu có, cũng được gửi khi đồng ý và được nêu trong hộp thoại.
+4. Bấm **Đồng ý chia sẻ** để lưu lựa chọn và bắt đầu gửi. Hoặc chọn **Để sau**, nút đóng hay Escape để dùng app mà không bật chia sẻ. Lựa chọn được nhớ trong trình duyệt; không hỏi lại mỗi lần mở.
+5. Sau này vào **Cài đặt → Chia sẻ với Group 4 → Đổi lựa chọn chia sẻ** để mở lại. **Ngừng chia sẻ** dừng gửi mới ngay. Bỏ chọn vị trí rồi **Lưu & gửi lựa chọn** để xóa vị trí đã gửi trên dashboard. **Quản lý dữ liệu đã gửi → Ngừng & xóa dữ liệu đã gửi** xóa dữ liệu thiết bị này trên máy chủ, vẫn giữ lịch sử tại máy.
 
-Group 4 nhận tổng hợp lượt nghỉ, giây nghỉ, ngày ngoài trời từ lịch sử, số giây app hiển thị từ lúc đồng ý, cùng thông tin tùy chọn. Không gửi nội dung màn hình hay thời điểm từng lần nghỉ. Thời gian chạy nền, máy ngủ và khoảng đồng hồ hệ thống nhảy không được cộng vào thời gian dùng. Có thể thiếu vài giây khi đóng đột ngột. Bật chia sẻ không tự tạo check-in và không đổi nghĩa của ngày hoạt động.
+Không gửi thống kê/thời gian/GPS chỉ vì mở lời mời hoặc xem trước vị trí. Người dùng phiên bản cũ đã bật hay ngừng chia sẻ giữ nguyên lựa chọn, không bị hỏi lại hoặc tự bật thêm thời gian/GPS. Đóng hộp sửa lựa chọn không thay đổi phần đã lưu. Đăng nhập hoặc đổi tên tài khoản không tự gửi tên mới; mở và lưu lựa chọn chia sẻ để cập nhật.
 
-Mỗi thiết bị/trình duyệt có mã riêng. Xóa dữ liệu trang làm mất lịch sử và khóa để quản lý dữ liệu đã gửi; hãy ngừng và xóa chia sẻ trước nếu cần. Windows EXE v3 tiếp tục dùng biểu mẫu chia sẻ cũ.
+Nếu chưa bật chia sẻ và không kết nối được máy chủ, hộp thoại hiện lỗi để thử lại hoặc chọn Để sau. Những thay đổi của phiên đã bật chia sẻ được lưu trên máy và gửi lại khi có mạng. Nếu không lưu được lựa chọn, app thông báo; không báo đã bật khi chưa lưu thành công.
+
+Group 4 không nhận nội dung màn hình hay thời điểm từng lần nghỉ. Thời gian chạy nền, máy ngủ và khoảng đồng hồ hệ thống nhảy không được cộng vào thời gian dùng. Có thể thiếu vài giây khi đóng đột ngột. Chia sẻ không tự tạo check-in; check-in nghỉ mắt vẫn cần đồng hồ nghỉ chạy hết, ngoài trời do người dùng tự đánh dấu.
+
+Mỗi thiết bị/trình duyệt có mã riêng. Xóa dữ liệu trang làm mất lịch sử và khóa để quản lý dữ liệu đã gửi, đồng thời app có thể hỏi lại khi mở lần sau. Hãy ngừng và xóa chia sẻ trước nếu cần. Windows EXE v3 tiếp tục dùng biểu mẫu chia sẻ cũ.
 
 ## 9. Đăng nhập tùy chọn
 

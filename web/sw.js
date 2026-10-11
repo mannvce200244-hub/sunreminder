@@ -1,6 +1,6 @@
 importScripts('./notification-store.js');
 const {claimNotice,updateNoticeState}=self.SunNotificationStore;
-const CACHE = 'sunreminder-shell-v3-6';
+const CACHE = 'sunreminder-shell-v3-7';
 const SHELL = ['./','./index.html','./styles.css','./app.js','./engine.js','./data.js','./analytics.js','./sharing.js','./profile.js','./profile-ui.js','./user-account.js','./usage.js','./background.js','./notification-store.js','./icon.svg','./icon-192.png','./icon-512.png','./apple-touch-icon.png','./manifest.webmanifest'];
 self.addEventListener('install', e => e.waitUntil(caches.open(CACHE).then(c => c.addAll(SHELL))));
 // Updates activate after all old windows close, never halfway through a focus session.
