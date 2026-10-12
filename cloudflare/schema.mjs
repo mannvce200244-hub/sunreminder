@@ -2,8 +2,10 @@
 import { USAGE_SCHEMA } from '../web/usage.js';
 import { PROFILE_SCHEMA } from '../web/profile.js';
 import { ACCOUNT_SCHEMA } from '../web/accounts-backend.mjs';
+import { RECOVERY_SCHEMA } from '../web/recovery-backend.mjs';
 export const schema = [
   ...ACCOUNT_SCHEMA,
+  ...RECOVERY_SCHEMA,
   `CREATE TABLE IF NOT EXISTS participants (
     id TEXT PRIMARY KEY, token_hash TEXT NOT NULL, source TEXT NOT NULL,
     consent_version TEXT NOT NULL, consented_at TEXT NOT NULL, updated_at TEXT NOT NULL,

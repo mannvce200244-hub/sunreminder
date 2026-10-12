@@ -1,8 +1,8 @@
 // Optional account; statistics remain on this device unless sharing is explicitly enabled.
-export function mountAccount(){
+export function mountAccount({onUserChanged=()=>{}}={}){
  const $=id=>document.getElementById(id);let user=null,token=null,expiresAt=0,generation=0,mode='login',busy=false;
  function message(text){$('account-status').textContent=text;}
- function render(){const signed=!!user;$('account-auth').hidden=signed;$('account-profile').hidden=!signed;$('account-open').textContent=signed?'Xin chào, '+user.displayName:'Đăng nhập';$('account-title').textContent=signed?'Góc của bạn':'Chào bạn đến với SunReminder';if(signed){$('account-name').value=user.displayName;$('account-username-label').textContent='@'+user.username;}}
+ function render(){const signed=!!user;$('account-auth').hidden=signed;$('account-profile').hidden=!signed;$('account-open').textContent=signed?'Xin chào, '+user.displayName:'Đăng nhập';$('account-title').textContent=signed?'Góc của bạn':'Chào bạn đến với SunReminder';if(signed){$('account-name').value=user.displayName;$('account-username-label').textContent='@'+user.username;}onUserChanged();}
  function revoke(value){if(value)void fetch('/api/user/logout',{method:'POST',headers:{Authorization:'Bearer '+value,'Content-Type':'application/json'},body:'{}',credentials:'omit',cache:'no-store',redirect:'error',keepalive:true}).catch(()=>{});}
  function logout(text='Đã đăng xuất. Bạn vẫn tiếp tục dùng app như bình thường.'){const old=token;token=null;user=null;expiresAt=0;generation++;render();message(text);revoke(old);}
  async function api(path,body,authenticated=false){if(authenticated&&(!token||Date.now()>=expiresAt)){logout('Phiên đã hết hạn. Vui lòng đăng nhập lại.');throw Error('Vui lòng đăng nhập lại.');}const r=await fetch(path==='login'?'/api/login':'/api/user/'+path,{method:'POST',credentials:path==='login'?'same-origin':'omit',cache:'no-store',redirect:'error',headers:{'Content-Type':'application/json',...(authenticated?{Authorization:'Bearer '+token}:{})},body:JSON.stringify(body)});const result=await r.json();if(!r.ok){if(authenticated&&r.status===401)logout();throw Error(result.error||'Chưa kết nối được tài khoản.');}return result;}
@@ -16,5 +16,5 @@ export function mountAccount(){
  $('account-logout').addEventListener('click',()=>logout());
  window.addEventListener('pagehide',()=>logout('Vui lòng đăng nhập lại.'));
  setInterval(()=>{if(token&&Date.now()>=expiresAt)logout('Phiên đã hết hạn. Vui lòng đăng nhập lại.');},15000);
- switchMode('login');render();return{getUser:()=>token&&Date.now()<expiresAt?user:null};
+ switchMode('login');render();return{getUser:()=>token&&Date.now()<expiresAt?user:null,request:api,forget:()=>logout('Mật khẩu đã thay đổi. Vui lòng đăng nhập lại.')};
 }

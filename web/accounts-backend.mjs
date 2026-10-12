@@ -42,7 +42,8 @@ export async function accountApi({path,method,authorization,readBody,db,rate,clo
   await query('DELETE FROM user_sessions WHERE expires<=?',now).run();
   // Keep a bounded number of concurrent sessions for one account.
   await query('DELETE FROM user_sessions WHERE token_hash IN (SELECT token_hash FROM user_sessions WHERE user_id=? ORDER BY expires DESC LIMIT -1 OFFSET 4)',user.id).run();
-  await query('INSERT INTO user_sessions VALUES(?,?,?)',await hash(token),user.id,expiresAt).run();
+  const inserted=await query('INSERT INTO user_sessions SELECT ?,?,? WHERE EXISTS(SELECT 1 FROM user_accounts WHERE id=? AND password_hash=?)',await hash(token),user.id,expiresAt,user.id,user.password_hash).run();
+  if(!(inserted.meta?.changes??inserted.changes))fail(401,'Mật khẩu vừa thay đổi. Vui lòng đăng nhập lại.');
   return{ok:true,sessionToken:token,expiresAt,user:{username:user.username,displayName:user.display_name}};
  }
  const token=authorization?.match(/^Bearer ([a-f0-9]{64})$/)?.[1];
@@ -55,3 +56,5 @@ export async function accountApi({path,method,authorization,readBody,db,rate,clo
  if(path==='/api/user/profile'){const body=await readBody(),name=displayName(body?.displayName);await query('UPDATE user_accounts SET display_name=? WHERE id=?',name,user.id).run();return{ok:true,user:{username:user.username,displayName:name}};}
  fail(404,'Không tìm thấy chức năng tài khoản.');
 }
+
+export {hash as accountHash,random as accountRandom,passwordHash as accountPasswordHash,equal as accountEqual};

@@ -43,13 +43,13 @@ async function report(cookie, range = '') {
 
 test('static app and admin are served; generated package excludes private/server files', async () => {
   const publicFiles = await readdir(new URL('../public/', import.meta.url));
-  assert.equal(publicFiles.length, 24);
+  assert.equal(publicFiles.length, 25);
   assert.ok(!publicFiles.some(name => /backend|server|password|sqlite/.test(name)));
   const app = await mf.dispatchFetch(origin + '/');
   assert.equal(app.status, 200); assert.match(await app.text(), /SunReminder/);
   const admin = await mf.dispatchFetch(origin + '/admin');
   assert.equal(admin.status, 200); assert.equal(admin.headers.get('Cache-Control'), 'no-store');
-  for (const path of ['/server-data/ADMIN-LOGIN.txt','/backend.mjs','/setup-admin.mjs','/.env','/schema.mjs']) assert.equal((await mf.dispatchFetch(origin + path)).status, 404);
+  for (const path of ['/server-data/ADMIN-LOGIN.txt','/backend.mjs','/recovery-backend.mjs','/setup-admin.mjs','/.env','/schema.mjs']) assert.equal((await mf.dispatchFetch(origin + path)).status, 404);
   const config = await (await mf.dispatchFetch(origin + '/api/config')).json();
   assert.equal(config.enabled, true);
   const unavailable = await worker.fetch(new Request(origin + '/api/config'), {});
@@ -180,3 +180,5 @@ test('push configuration exposes only the public key and schedules/cancels with 
  const cancel=await post('/api/push/schedule',{revision:2,task:null},headers);assert.equal(cancel.status,200);assert.equal((await cancel.json()).scheduled,false);
  const stale=await post('/api/push/schedule',{revision:1,task:null},headers);assert.equal((await stale.json()).stale,true);
 });
+
+test('recovery endpoints enforce origin and disclose missing mail configuration without sending',async()=>{assert.equal((await(await mf.dispatchFetch(origin+'/api/config')).json()).emailRecovery,false);assert.equal((await post('/api/user/recovery/request',{username:'member',email:'member@example.test'},{Origin:'https://other.test'})).status,403);const response=await post('/api/user/recovery/request',{username:'member',email:'member@example.test'});assert.equal(response.status,503);assert.match((await response.json()).error,/chưa bật/);assert.equal((await post('/api/user/recovery/status',{})).status,401);});

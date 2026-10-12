@@ -1,13 +1,14 @@
 export { ReminderScheduler } from './reminders.mjs';
 import { validateReminder } from './reminders.mjs';
 import { USAGE_CONSENT_VERSION, usageFromPayload, addUsageReport, EXPORT_SQL } from '../web/usage.js';
+import { recoveryApi,recoveryMailer } from '../web/recovery-backend.mjs';
 import { accountApi } from '../web/accounts-backend.mjs';
 import { PROFILE_CONSENT_VERSION, profileFromPayload, withProfile, PROFILE_CSV_HEADER, profileCsv } from '../web/profile.js';
 import { ensureSchema } from './schema.mjs';
 
 const CONSENT_VERSION = 'group4-stats-v1';
 const encoder = new TextEncoder();
-const allowedAssets = new Set(['index.html','app.js','engine.js','data.js','analytics.js','sharing.js','profile.js','profile-ui.js','user-account.js','usage.js','background.js','notification-store.js','admin-session.js','admin-data.js','styles.css','sw.js','manifest.webmanifest','icon.svg','icon-192.png','icon-512.png','apple-touch-icon.png','admin.html','admin.js','admin.css']);
+const allowedAssets = new Set(['index.html','app.js','engine.js','data.js','analytics.js','sharing.js','profile.js','profile-ui.js','user-account.js','recovery-ui.js','usage.js','background.js','notification-store.js','admin-session.js','admin-data.js','styles.css','sw.js','manifest.webmanifest','icon.svg','icon-192.png','icon-512.png','apple-touch-icon.png','admin.html','admin.js','admin.css']);
 const failure = (status, message) => Object.assign(new Error(message), { status });
 const hex = bytes => Array.from(new Uint8Array(bytes), b => b.toString(16).padStart(2, '0')).join('');
 const random = () => hex(crypto.getRandomValues(new Uint8Array(32)));
@@ -173,7 +174,7 @@ async function api(request, env, url) {
   const readInput=()=>unified?Promise.resolve(loginValue):body(request);
   const transferCookie=(token,age)=>'sun_admin_transfer='+token+'; HttpOnly; SameSite=Strict; Path=/api/admin/claim; Max-Age='+age+(url.protocol==='https:'?'; Secure':'');
   const configured = !!env.DB && typeof env.SUN_ADMIN_PASSWORD === 'string' && env.SUN_ADMIN_PASSWORD.length >= 16 && env.SUN_ADMIN_PASSWORD.length <= 256;
-  if (request.method === 'GET' && url.pathname === '/api/config') return json({ enabled: configured, collector: 'Group 4', consentVersion: CONSENT_VERSION, profileConsentVersion: PROFILE_CONSENT_VERSION, usageConsentVersion: USAGE_CONSENT_VERSION, backgroundPush: !!env.REMINDERS });
+  if (request.method === 'GET' && url.pathname === '/api/config') return json({ enabled: configured, collector: 'Group 4', consentVersion: CONSENT_VERSION, profileConsentVersion: PROFILE_CONSENT_VERSION, usageConsentVersion: USAGE_CONSENT_VERSION, backgroundPush: !!env.REMINDERS, emailRecovery: !!recoveryMailer(env) });
   if (!configured) throw failure(503, 'Group 4 cần cấu hình D1 và Secret SUN_ADMIN_PASSWORD (16–256 ký tự). Đồng hồ vẫn dùng được.');
   await ensureSchema(env.DB);
   const ipKey = await hash((request.headers.get('CF-Connecting-IP') || 'local') + env.SUN_ADMIN_PASSWORD);
@@ -191,6 +192,7 @@ async function api(request, env, url) {
   if(url.pathname.startsWith('/api/user/')){
     if(origin!==url.origin)throw failure(403,'Yêu cầu tài khoản phải đến từ SunReminder.');
     await rate(env.DB,'account:global',120,60000);
+    if(url.pathname.startsWith('/api/user/recovery/'))return json(await recoveryApi({path:url.pathname,method:request.method,authorization:request.headers.get('Authorization'),readBody:readInput,db:env.DB,origin:url.origin,sendMail:recoveryMailer(env),rate:(key,max,ms,global)=>rate(env.DB,key+(global?'':':'+ipKey),max,ms)}));
     return json(await accountApi({path:url.pathname,method:request.method,authorization:request.headers.get('Authorization'),readBody:readInput,db:env.DB,rate:(key,max,ms,global)=>rate(env.DB,key+(global?'':':'+ipKey),max,ms)}));
   }
   if (request.method === 'POST' && url.pathname === '/api/admin/login') {

@@ -87,7 +87,7 @@ npm run check:deploy
 
 Giữ nguyên binding DB và Secret SUN_ADMIN_PASSWORD. Bản này tự tạo thêm bảng thông tin thiết bị, tài khoản và phiên người dùng bằng CREATE TABLE IF NOT EXISTS; không đổi bảng lịch sử hoặc mã thiết bị cũ. Sau khi GitHub triển khai xong, đóng hết cửa sổ SunReminder rồi mở lại để cập nhật bản ngoại tuyến.
 
-Tài khoản người dùng tách quyền khỏi admin. Mật khẩu người dùng dùng PBKDF2-SHA-256, 100.000 vòng (tương thích workerd hiện dùng), salt ngẫu nhiên từng tài khoản; không lưu mật khẩu gốc. Có giới hạn đăng nhập/đăng ký theo IP và tên đăng nhập. Khóa phiên chỉ giữ trong bộ nhớ trang, máy chủ lưu bản băm và thời hạn. Đổi mật khẩu admin không đổi mật khẩu người dùng. Chưa có khôi phục mật khẩu qua email hoặc đồng bộ lịch sử theo tài khoản.
+Tài khoản người dùng tách quyền khỏi admin. Mật khẩu người dùng dùng PBKDF2-SHA-256, 100.000 vòng (tương thích workerd hiện dùng), salt ngẫu nhiên từng tài khoản; không lưu mật khẩu gốc. Có giới hạn đăng nhập/đăng ký theo IP và tên đăng nhập. Khóa phiên chỉ giữ trong bộ nhớ trang, máy chủ lưu bản băm và thời hạn. Đổi mật khẩu admin không đổi mật khẩu người dùng. Từ bản 3.7 có khôi phục qua email đã xác minh khi Group 4 cấu hình dịch vụ gửi thư; xem [EMAIL-KHOI-PHUC.md](EMAIL-KHOI-PHUC.md). Chưa đồng bộ lịch sử theo tài khoản.
 
 Xem [hướng dẫn người dùng](HUONG-DAN.md#9-tài-khoản-tùy-chọn-tên-thiết-bị-và-gps-webpwa-33) để thử chế độ khách, đăng ký/đăng nhập và chia sẻ vị trí có đồng ý.
 

@@ -27,3 +27,5 @@ test('optional accounts, consented profiles, removal and legacy data work on SQL
 import {unifiedContract,usageContract} from './new-features-contract.mjs';
 test('single login routes by role and dashboard transfer is single-use on SQLite',async t=>{const{call}=await fixture(t);await unifiedContract((route,options={})=>call(route,{...options,headers:{Origin:origin,...options.headers}}),password);});
 test('consented usage totals, date filters, CSV and withdrawal work on SQLite',async t=>{const{call}=await fixture(t);await usageContract(call,await login(call));});
+
+test('local recovery routes enforce origin and expose no server module',async t=>{const{call}=await fixture(t);assert.equal((await call('/recovery-backend.mjs')).status,404);assert.equal((await call('/recovery-ui.js')).status,200);assert.equal((await call('/api/user/recovery/status',{body:{}})).status,403);assert.equal((await call('/api/user/recovery/status',{body:{},headers:{Origin:origin}})).status,401);});

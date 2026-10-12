@@ -1,4 +1,5 @@
 import { USAGE_SCHEMA, USAGE_CONSENT_VERSION, usageFromPayload, addUsageReport, EXPORT_SQL } from './usage.js';
+import { RECOVERY_SCHEMA,recoveryApi,recoveryMailer } from './recovery-backend.mjs';
 import { ACCOUNT_SCHEMA, accountApi } from './accounts-backend.mjs';
 import { PROFILE_CONSENT_VERSION, PROFILE_SCHEMA, profileFromPayload, withProfile, PROFILE_CSV_HEADER, profileCsv } from './profile.js';
 import { DatabaseSync } from 'node:sqlite';
@@ -20,15 +21,15 @@ export function validateSnapshot(body){
   }
   return body;
 }
-export function createBackend({dataDir,origin,adminPassword,clock=()=>Date.now()}){
+export function createBackend({dataDir,origin,adminPassword,clock=()=>Date.now(),sendMail=recoveryMailer(process.env)}){
   mkdirSync(dataDir,{recursive:true});
   const db=new DatabaseSync(path.join(dataDir,'statistics.sqlite'));
   db.exec(`PRAGMA journal_mode=WAL; PRAGMA foreign_keys=ON; PRAGMA busy_timeout=5000;
     CREATE TABLE IF NOT EXISTS participants(id TEXT PRIMARY KEY,token_hash TEXT NOT NULL,source TEXT NOT NULL,consent_version TEXT NOT NULL,consented_at TEXT NOT NULL,updated_at TEXT NOT NULL,revision INTEGER NOT NULL DEFAULT 0,deleted INTEGER NOT NULL DEFAULT 0);
     CREATE TABLE IF NOT EXISTS daily(participant_id TEXT NOT NULL REFERENCES participants(id) ON DELETE CASCADE,day TEXT NOT NULL,break_count INTEGER NOT NULL,rest_seconds INTEGER NOT NULL,outdoor INTEGER NOT NULL,PRIMARY KEY(participant_id,day));
     CREATE INDEX IF NOT EXISTS daily_day ON daily(day);`);
-  db.exec(PROFILE_SCHEMA);db.exec(USAGE_SCHEMA);for(const sql of ACCOUNT_SCHEMA)db.exec(sql);
-  const accountDb={prepare:sql=>({bind:(...args)=>({first:()=>db.prepare(sql).get(...args),run:()=>db.prepare(sql).run(...args)})})};
+  db.exec(PROFILE_SCHEMA);db.exec(USAGE_SCHEMA);for(const sql of [...ACCOUNT_SCHEMA,...RECOVERY_SCHEMA])db.exec(sql);
+  const accountDb={prepare:sql=>({bind:(...args)=>({first:()=>db.prepare(sql).get(...args),run:()=>db.prepare(sql).run(...args)})}),batch:async statements=>{db.exec('BEGIN IMMEDIATE');try{const result=statements.map(s=>s.run());db.exec('COMMIT');return result;}catch(error){db.exec('ROLLBACK');throw error;}}};
   let auth=null;
   if(adminPassword){if(adminPassword.length<16)throw new Error('SUN_ADMIN_PASSWORD cần ít nhất 16 ký tự.');auth=passwordHash(adminPassword);}
   else if(existsSync(path.join(dataDir,'admin-auth.json')))auth=JSON.parse(readFileSync(path.join(dataDir,'admin-auth.json'),'utf8'));
@@ -57,11 +58,12 @@ export function createBackend({dataDir,origin,adminPassword,clock=()=>Date.now()
       if(unified){if(req.headers.origin!==origin)throw failure(403,'Nguồn yêu cầu không được phép.');loginValue=await readBody(req);if(typeof loginValue?.username==='string')loginValue.username=loginValue.username.trim().toLowerCase();url=new URL(url);url.pathname=loginValue?.username==='group4'?'/api/admin/login':'/api/user/login';}
       const readInput=()=>unified?Promise.resolve(loginValue):readBody(req);
       const transferCookie=(token,age)=>'sun_admin_transfer='+token+'; HttpOnly; SameSite=Strict; Path=/api/admin/claim; Max-Age='+age+(origin.startsWith('https:')?'; Secure':'');
-      if(req.method==='GET'&&url.pathname==='/api/config'){send(res,200,{enabled:!!auth,collector:'Group 4',consentVersion:CONSENT_VERSION,profileConsentVersion:PROFILE_CONSENT_VERSION,usageConsentVersion:USAGE_CONSENT_VERSION});return true;}
+      if(req.method==='GET'&&url.pathname==='/api/config'){send(res,200,{enabled:!!auth,collector:'Group 4',consentVersion:CONSENT_VERSION,profileConsentVersion:PROFILE_CONSENT_VERSION,usageConsentVersion:USAGE_CONSENT_VERSION,emailRecovery:!!sendMail});return true;}
       if(!auth)throw failure(503,'Nhóm chưa cấu hình máy chủ thống kê. Đồng hồ vẫn dùng được.');
       if(url.pathname.startsWith('/api/user/')){
         if(req.headers.origin!==origin)throw failure(403,'Yêu cầu tài khoản phải đến từ SunReminder.');
         rate('account:global',120,60000);
+        if(url.pathname.startsWith('/api/user/recovery/')){send(res,200,await recoveryApi({path:url.pathname,method:req.method,authorization:req.headers.authorization,readBody:readInput,db:accountDb,origin,sendMail,clock,rate:(key,max,ms,global)=>rate(key+(global?'':':'+ip),max,ms)}));return true;}
         send(res,200,await accountApi({path:url.pathname,method:req.method,authorization:req.headers.authorization,readBody:readInput,db:accountDb,clock,rate:(key,max,ms,global)=>rate(key+(global?'':':'+ip),max,ms)}));return true;
       }
       if(req.method==='POST'&&url.pathname==='/api/admin/login'){
