@@ -46,3 +46,35 @@ for(const cloud of [false,true]){
 }
 test('unconfigured email service reports unavailable and never manufactures a delivery',async t=>{const f=await fixture(t);assert.equal(recoveryMailer({}),null);await assert.rejects(recoveryApi({...f.base,sendMail:null,path:'/api/user/recovery/request',method:'POST',readBody:async()=>({username:'member',email:'member@example.test'})}),e=>e.status===503);assert.equal(f.mails.length,0);});
 test('mailer sends only through Brevo, with secret in headers and token in a fragment link',async()=>{let request;const mailer=recoveryMailer({SUN_BREVO_API_KEY:'test-key',SUN_MAIL_FROM:'group@example.test'},async(url,options)=>{request={url,options};return new Response('{}',{status:201});});await mailer({to:'user@example.test',kind:'reset',token:'a'.repeat(64),origin:'https://sunreminder.test'});assert.equal(request.url,'https://api.brevo.com/v3/smtp/email');const data=JSON.parse(request.options.body);assert.equal(data.to[0].email,'user@example.test');assert.match(data.textContent,/#reset-password=a{64}/);assert.equal(request.options.body.includes('test-key'),false);});
+
+test('Brevo failures return safe actionable errors instead of a database error',async()=>{
+ const cases=[
+  [401,{code:'unauthorized',message:'Key not found'},'MAIL_AUTH'],
+  [401,{code:'unauthorized',message:'We have detected you are using an unrecognised IP address'},'MAIL_IP'],
+  [400,{code:'account_under_validation',message:'pending'},'MAIL_ACTIVATION'],
+  [400,{code:'permission_denied',message:'Your SMTP account is not yet activated'},'MAIL_ACTIVATION'],
+  [403,{code:'permission_denied'},'MAIL_PERMISSION'],
+  [400,{code:'invalid_parameter',message:'sender is not verified'},'MAIL_SENDER'],
+  [400,{code:'not_enough_credits'},'MAIL_LIMIT'],
+  [429,{},'MAIL_LIMIT'],[402,{},'MAIL_ACCOUNT'],[502,{},'MAIL_SERVICE'],
+  [400,{message:'sensitive-test-key recipient@example.test reset-token'},'MAIL_REJECTED']
+ ];
+ for(const [status,body,code] of cases){const mailer=recoveryMailer({SUN_BREVO_API_KEY:'test-key',SUN_MAIL_FROM:'sender@example.test'},async()=>new Response(JSON.stringify(body),{status}));await assert.rejects(mailer({to:'recipient@example.test',kind:'verify',token:'a'.repeat(64),origin:'https://app.test'}),e=>{assert.equal(e.status,503);assert.ok(e.message.includes(code));assert.doesNotMatch(e.message,/sensitive-test-key|recipient@example.test|reset-token/);return true;});}
+});
+test('network failures and invalid provider replies are bounded safe errors',async()=>{
+ for(const [reply,code] of [[async()=>{throw new TypeError('secret internal network detail');},'MAIL_NETWORK'],[async()=>{throw Object.assign(new Error('private URL'),{name:'TimeoutError'});},'MAIL_TIMEOUT'],[async()=>new Response('<html>private proxy details</html>',{status:502}),'MAIL_SERVICE']]){
+  const mailer=recoveryMailer({SUN_BREVO_API_KEY:'test-key',SUN_MAIL_FROM:'sender@example.test'},reply);
+  await assert.rejects(mailer({to:'recipient@example.test',kind:'verify',token:'a'.repeat(64),origin:'https://app.test'}),e=>e.status===503&&e.message.includes(code)&&!e.message.includes('private'));
+ }
+});
+test('pasted credentials are trimmed and invalid sender configuration fails before network',async()=>{
+ let sent=0;const transport=async(url,options)=>{sent++;assert.equal(options.headers['api-key'],'test-key');assert.equal(JSON.parse(options.body).sender.email,'sender@example.test');return new Response('{}',{status:201});};
+ const mail={to:'recipient@example.test',kind:'verify',token:'a'.repeat(64),origin:'https://app.test'};
+ await recoveryMailer({SUN_BREVO_API_KEY:' test-key\n',SUN_MAIL_FROM:' sender@example.test '},transport)(mail);assert.equal(sent,1);
+ for(const env of [{SUN_BREVO_API_KEY:'bad\nkey',SUN_MAIL_FROM:'sender@example.test'},{SUN_BREVO_API_KEY:'test-key',SUN_MAIL_FROM:'not an email'}])await assert.rejects(recoveryMailer(env,transport)(mail),e=>e.status===503);
+ assert.equal(sent,1);
+});
+test('a failed reset delivery keeps the anonymous response and removes its unusable token',async t=>{
+ const f=await fixture(t),email='member@example.test';await f.call('/api/user/recovery/email',{email,password:f.password},f.user.sessionToken);await f.call('/api/user/recovery/verify',{token:f.mails.at(-1).token});f.failMail();
+ const response=await f.call('/api/user/recovery/request',{email,username:'member'});assert.deepEqual(response,await f.call('/api/user/recovery/request',{email,username:'unknown'}));assert.equal((await f.db.prepare('SELECT COUNT(*) n FROM recovery_tokens WHERE kind=?').bind('reset').first()).n,0);
+});

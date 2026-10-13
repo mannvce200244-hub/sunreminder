@@ -182,3 +182,15 @@ test('push configuration exposes only the public key and schedules/cancels with 
 });
 
 test('recovery endpoints enforce origin and disclose missing mail configuration without sending',async()=>{assert.equal((await(await mf.dispatchFetch(origin+'/api/config')).json()).emailRecovery,false);assert.equal((await post('/api/user/recovery/request',{username:'member',email:'member@example.test'},{Origin:'https://other.test'})).status,403);const response=await post('/api/user/recovery/request',{username:'member',email:'member@example.test'});assert.equal(response.status,503);assert.match((await response.json()).error,/chưa bật/);assert.equal((await post('/api/user/recovery/status',{})).status,401);});
+
+test('Worker preserves actionable mail errors after validating the app password',async()=>{
+ const registered=await post('/api/user/register',{username:'mailcheck',displayName:'Mail check',password:'local-test-password-123',consentVersion:'group4-account-v1'});assert.equal(registered.status,200);const session=await registered.json();
+ const originalFetch=globalThis.fetch;let sends=0;
+ try{
+  globalThis.fetch=async url=>{assert.equal(url,'https://api.brevo.com/v3/smtp/email');sends++;return new Response(JSON.stringify({code:'unauthorized',message:'sensitive-test-provider-details'}),{status:401});};
+  const send=pw=>worker.fetch(new Request(origin+'/api/user/recovery/email',{method:'POST',headers:{Origin:origin,'Content-Type':'application/json',Authorization:'Bearer '+session.sessionToken},body:JSON.stringify({email:'recipient@example.test',password:pw})}),{DB:db,SUN_ADMIN_PASSWORD:password,SUN_BREVO_API_KEY:'local-fake-key',SUN_MAIL_FROM:'sender@example.test'});
+  const wrong=await send('wrong-password');assert.equal(wrong.status,400);assert.match((await wrong.json()).error,/Mật khẩu hiện tại chưa đúng/);assert.equal(sends,0);
+  const correct=await send('local-test-password-123');assert.equal(correct.status,503);const text=await correct.text();assert.match(text,/MAIL_AUTH/);assert.doesNotMatch(text,/sensitive-test-provider-details|Máy chủ chưa lưu/);assert.equal(sends,1);
+  assert.equal((await db.prepare('SELECT COUNT(*) n FROM recovery_tokens').first()).n,0);
+ }finally{globalThis.fetch=originalFetch;}
+});

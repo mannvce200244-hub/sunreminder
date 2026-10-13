@@ -8,11 +8,28 @@ export const RECOVERY_SCHEMA=[
 const fail=(status,message)=>{throw Object.assign(new Error(message),{status});};
 const emailOf=v=>{if(typeof v!=='string'||v.length>254||! /^[^\s<>@]+@[^\s<>@]+\.[^\s<>@]+$/.test(v)||/[\r\n\x00-\x1f]/.test(v))fail(400,'Nhập địa chỉ email hợp lệ.');return v.trim().toLowerCase();};
 export function recoveryMailer(env,request=fetch){
- if(!env.SUN_BREVO_API_KEY||!env.SUN_MAIL_FROM)return null;
+ const apiKey=typeof env.SUN_BREVO_API_KEY==='string'?env.SUN_BREVO_API_KEY.trim():'',from=typeof env.SUN_MAIL_FROM==='string'?env.SUN_MAIL_FROM.trim():'';
+ if(!apiKey||!from)return null;
  return async({to,kind,token,origin})=>{
   const link=origin+'/#'+(kind==='verify'?'verify-email=':'reset-password=')+token;
-  const response=await request('https://api.brevo.com/v3/smtp/email',{method:'POST',headers:{'Content-Type':'application/json','api-key':env.SUN_BREVO_API_KEY},body:JSON.stringify({sender:{name:'SunReminder · Group 4',email:env.SUN_MAIL_FROM},to:[{email:to}],subject:kind==='verify'?'Xác minh email khôi phục SunReminder':'Đặt lại mật khẩu SunReminder',textContent:(kind==='verify'?'Bạn vừa yêu cầu liên kết email này với tài khoản SunReminder.':'Bạn vừa yêu cầu đặt lại mật khẩu SunReminder.')+'\n\nMở liên kết sau (có hiệu lực 15 phút, chỉ dùng một lần):\n'+link+(kind==='verify'?'\n\nNếu không bấm được liên kết, sao chép toàn bộ liên kết vào thanh địa chỉ trình duyệt.':'\n\nNếu không mở được liên kết, nhập mã sau vào mục Khôi phục tài khoản trong app:\n'+token)+'\n\nNếu không phải bạn yêu cầu, hãy bỏ qua thư. Không chia sẻ liên kết hoặc mã này với người khác.'}),signal:AbortSignal.timeout(12000),redirect:'error'});
-  if(!response.ok)throw Error('Chưa gửi được thư. Vui lòng thử lại sau hoặc liên hệ Group 4.');
+  if(/[\r\n\x00-\x1f]/.test(apiKey))fail(503,'Khóa gửi thư chưa đúng định dạng (MAIL_CONFIG). Group 4 cần kiểm tra SUN_BREVO_API_KEY.');
+  try{emailOf(from);}catch{fail(503,'Địa chỉ gửi thư chưa hợp lệ (MAIL_SENDER). Group 4 cần kiểm tra SUN_MAIL_FROM.');}
+  let response;
+  try{response=await request('https://api.brevo.com/v3/smtp/email',{method:'POST',headers:{'Content-Type':'application/json','api-key':apiKey},body:JSON.stringify({sender:{name:'SunReminder · Group 4',email:from},to:[{email:to}],subject:kind==='verify'?'Xác minh email khôi phục SunReminder':'Đặt lại mật khẩu SunReminder',textContent:(kind==='verify'?'Bạn vừa yêu cầu liên kết email này với tài khoản SunReminder.':'Bạn vừa yêu cầu đặt lại mật khẩu SunReminder.')+'\n\nMở liên kết sau (có hiệu lực 15 phút, chỉ dùng một lần):\n'+link+(kind==='verify'?'\n\nNếu không bấm được liên kết, sao chép toàn bộ liên kết vào thanh địa chỉ trình duyệt.':'\n\nNếu không mở được liên kết, nhập mã sau vào mục Khôi phục tài khoản trong app:\n'+token)+'\n\nNếu không phải bạn yêu cầu, hãy bỏ qua thư. Không chia sẻ liên kết hoặc mã này với người khác.'}),signal:AbortSignal.timeout(12000),redirect:'error'});}
+  catch(error){fail(503,['AbortError','TimeoutError'].includes(error?.name)?'Dịch vụ gửi thư phản hồi quá lâu (MAIL_TIMEOUT). Vui lòng thử lại sau.':'Chưa kết nối được dịch vụ gửi thư (MAIL_NETWORK). Vui lòng thử lại sau.');}
+  if(!response.ok){
+   // Provider text is inspected only for classification, never exposed or logged.
+   const detail=await response.json().catch(()=>null),code=typeof detail?.code==='string'?detail.code:'',message=typeof detail?.message==='string'?detail.message.slice(0,1500):'';
+   if(/(?:ip address|whitelist|allowlist|unauthori[sz]ed ip|unrecogni[sz]ed ip)/i.test(message))fail(503,'Brevo đang chặn địa chỉ IP máy chủ (MAIL_IP). Group 4 cần kiểm tra Brevo → Security → Authorized IPs.');
+   if(code==='account_under_validation'||/(?:not.{0,15}activat|activat.{0,15}account|account.{0,25}(?:validat|suspend|block|disable)|smtp.{0,25}(?:activat|disable))/i.test(message))fail(503,'Tài khoản gửi thư Brevo chưa sẵn sàng (MAIL_ACTIVATION). Group 4 cần kiểm tra trạng thái Transactional trên Brevo.');
+   if(response.status===401||code==='unauthorized')fail(503,'Brevo chưa xác thực được khóa gửi thư (MAIL_AUTH). Group 4 cần kiểm tra SUN_BREVO_API_KEY. Đây không phải lỗi mật khẩu tài khoản SunReminder.');
+   if(response.status===429||code==='not_enough_credits')fail(503,'Dịch vụ gửi thư đã chạm giới hạn (MAIL_LIMIT). Vui lòng đợi rồi thử lại; Group 4 có thể kiểm tra hạn mức Brevo.');
+   if(response.status===402)fail(503,'Brevo yêu cầu kiểm tra kích hoạt hoặc hạn mức gửi thư (MAIL_ACCOUNT). Group 4 cần kiểm tra tài khoản Brevo.');
+   if(response.status===403||code==='permission_denied')fail(503,'Brevo chưa cho phép gửi thư (MAIL_PERMISSION). Group 4 cần kiểm tra quyền API và trạng thái Transactional.');
+   if(/sender|from.email/i.test(message))fail(503,'Brevo chưa chấp nhận địa chỉ gửi thư (MAIL_SENDER). Group 4 cần kiểm tra SUN_MAIL_FROM có khớp người gửi đã xác minh.');
+   if(response.status>=500)fail(503,'Dịch vụ Brevo đang gặp lỗi (MAIL_SERVICE). Vui lòng thử lại sau.');
+   fail(503,'Brevo từ chối yêu cầu gửi thư (MAIL_REJECTED). Group 4 cần kiểm tra cấu hình người gửi và nhật ký Brevo.');
+  }
  };
 }
 export async function recoveryApi({path,method,authorization,readBody,db,rate,sendMail,origin,clock=()=>Date.now()}){

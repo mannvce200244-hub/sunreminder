@@ -56,3 +56,19 @@ Tích hợp dùng [API gửi email chính thức của Brevo](https://developers
 Chuông ba nốt phát khi trang còn hoạt động và trình duyệt cho phép phát âm thanh. Khi trang bị treo/đóng hoặc khóa màn hình, thông báo đẩy dùng âm thanh thông báo của hệ điều hành nếu được cho phép. Web không thể ép chuông riêng chạy liên tục, vượt Không làm phiền, hoặc bảo đảm thông báo đúng giây khi thiết bị ngủ/mất mạng/tắt nguồn. Một số trình duyệt không giữ banner cho đến khi bấm; nút Thử thông báo giúp kiểm tra thiết bị thực tế.
 
 Đổi tab không làm app tự tạm dừng. Tiêu đề tab cập nhật theo hạn giờ thực tế mỗi khi trình duyệt cho chạy JavaScript; trình duyệt có thể giảm tần suất cập nhật tab nền. Nếu hiển thị **Đã tạm dừng**, chọn **Tiếp tục** để chạy lại. Không xóa dữ liệu trình duyệt để cập nhật app vì lịch sử nằm trên thiết bị.
+
+## Phân biệt mật khẩu và lỗi gửi thư (3.7.1)
+
+Ô xác minh email dùng mật khẩu tài khoản người dùng SunReminder đang đăng nhập. Không nhập mật khẩu hộp thư, mật khẩu Brevo hoặc mật khẩu admin. Nếu mật khẩu sai, app báo “Mật khẩu hiện tại chưa đúng”. Nếu Brevo từ chối sau khi kiểm tra mật khẩu, app hiện nguyên nhân riêng thay vì lỗi lưu dữ liệu chung:
+
+| Mã | Cần kiểm tra |
+| --- | --- |
+| MAIL_AUTH / MAIL_CONFIG | SUN_BREVO_API_KEY phải là API key còn hiệu lực, không phải SMTP key; sao chép đúng toàn bộ khóa |
+| MAIL_SENDER | SUN_MAIL_FROM đúng địa chỉ người gửi đã Verified trong Brevo |
+| MAIL_ACTIVATION / MAIL_PERMISSION / MAIL_ACCOUNT | Trạng thái tài khoản Transactional, quyền API và hạn mức trên Brevo |
+| MAIL_IP | Brevo → Security → Authorized IPs và thông báo chặn IP; xác định đúng IP của máy chủ trước khi cho phép, không thêm IP lạ tùy ý |
+| MAIL_LIMIT | Giới hạn tần suất hoặc lượng thư; chờ và kiểm tra hạn mức |
+| MAIL_NETWORK / MAIL_TIMEOUT / MAIL_SERVICE | Lỗi kết nối hoặc dịch vụ; thử lại sau |
+| MAIL_REJECTED | Yêu cầu bị Brevo từ chối, cần kiểm tra cấu hình người gửi và nhật ký |
+
+Phản hồi thô của Brevo không được gửi ra giao diện hoặc log vì có thể chứa thông tin riêng. Luồng Quên mật khẩu vẫn trả lời chung để tránh tiết lộ tài khoản có tồn tại. Việc ô mật khẩu bị xóa sau khi gửi là chủ ý của app, không có nghĩa bạn đã nhập sai.
