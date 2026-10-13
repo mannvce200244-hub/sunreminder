@@ -20,10 +20,13 @@ export async function accountApi({path,method,authorization,readBody,db,rate,clo
  if(path==='/api/user/register'||path==='/api/user/login'){
   await rate('account-access',12,900000);
   const body=await readBody();const username=typeof body?.username==='string'?body.username.trim().toLowerCase():'';
-  if(!/^[a-z0-9_]{3,32}$/.test(username)||username==='group4'||username==='admin')fail(400,'Tên đăng nhập gồm 3–32 chữ thường không dấu, số hoặc dấu gạch dưới; không dùng admin hay group4.');
+  const emailLogin=path==='/api/user/login'&&username.length<=254&&/^[^\s<>@]+@[^\s<>@]+\.[^\s<>@]+$/.test(username);
+  if((!emailLogin&&!/^[a-z0-9_]{3,32}$/.test(username))||username==='group4'||username==='admin')fail(400,'Tên đăng nhập gồm 3–32 chữ thường không dấu, số hoặc dấu gạch dưới; không dùng admin hay group4.');
   if(typeof body.password!=='string'||body.password.length<12||body.password.length>128)fail(400,'Mật khẩu cần từ 12 đến 128 ký tự.');
   await rate('account-name:'+await hash(username),15,900000,true);
-  let user=await query('SELECT * FROM user_accounts WHERE username=?',username).first();
+  // Legacy duplicate recovery emails are ambiguous: require username until an owner changes email.
+  let user=emailLogin?await query('SELECT u.* FROM user_accounts u JOIN recovery_emails e ON e.user_id=u.id WHERE e.email=? AND (SELECT COUNT(*) FROM recovery_emails WHERE email=?)=1',username,username).first():await query('SELECT * FROM user_accounts WHERE username=?',username).first();
+  if(user)await rate('account-user:'+user.id,15,900000,true);
   if(path==='/api/user/register'){
    await rate('account-register',5,3600000);
    const name=displayName(body.displayName);

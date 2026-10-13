@@ -78,3 +78,57 @@ test('a failed reset delivery keeps the anonymous response and removes its unusa
  const f=await fixture(t),email='member@example.test';await f.call('/api/user/recovery/email',{email,password:f.password},f.user.sessionToken);await f.call('/api/user/recovery/verify',{token:f.mails.at(-1).token});f.failMail();
  const response=await f.call('/api/user/recovery/request',{email,username:'member'});assert.deepEqual(response,await f.call('/api/user/recovery/request',{email,username:'unknown'}));assert.equal((await f.db.prepare('SELECT COUNT(*) n FROM recovery_tokens WHERE kind=?').bind('reset').first()).n,0);
 });
+
+for(const cloud of [false,true]){
+ const label=cloud?'D1':'SQLite';
+ test(label+': six-digit email codes verify once and enable email or username login',async t=>{
+  const f=await fixture(t,cloud),email='member@example.test';
+  const issued=await f.call('/api/user/recovery/email',{email,password:f.password,codeFormat:'otp6'},f.user.sessionToken),mail=f.mails.at(-1);
+  assert.match(mail.code,/^\d{6}$/);assert.equal(mail.token,undefined);assert.match(issued.challenge,/^[a-f0-9]{64}$/);assert.equal(issued.code,undefined);assert.equal(issued.token,undefined);
+  await assert.rejects(f.call('/api/user/login',{username:email,password:f.password}),/chưa đúng/);
+  const stored=await f.db.prepare('SELECT * FROM recovery_codes WHERE challenge_hash=?').bind(await (await import('../accounts-backend.mjs')).accountHash(issued.challenge)).first();assert.ok(stored);assert.notEqual(stored.code_hash,mail.code);
+  const wrong=mail.code==='000000'?'000001':'000000';await assert.rejects(f.call('/api/user/recovery/verify',{challenge:issued.challenge,code:wrong}),/Mã/);
+  await f.call('/api/user/recovery/verify',{challenge:issued.challenge,code:mail.code});
+  await assert.rejects(f.call('/api/user/recovery/verify',{challenge:issued.challenge,code:mail.code}),/Mã|hết hạn/);
+  assert.ok((await f.call('/api/user/login',{username:' MEMBER@EXAMPLE.TEST ',password:f.password})).sessionToken);
+  assert.ok((await f.call('/api/user/login',{username:'member',password:f.password})).sessionToken);
+ });
+ test(label+': OTP attempts are atomically limited to five, including concurrent guesses',async t=>{
+  const f=await fixture(t,cloud);const issued=await f.call('/api/user/recovery/email',{email:'member@example.test',password:f.password,codeFormat:'otp6'},f.user.sessionToken),code=f.mails.at(-1).code;
+  const wrong=code==='000000'?'000001':'000000';const results=await Promise.allSettled(Array.from({length:8},()=>f.call('/api/user/recovery/verify',{challenge:issued.challenge,code:wrong})));assert.ok(results.every(r=>r.status==='rejected'));
+  const row=await f.db.prepare('SELECT attempts FROM recovery_codes WHERE token_hash=(SELECT token_hash FROM recovery_tokens WHERE kind=?)').bind('verify').first();assert.equal(row.attempts,5);
+  await assert.rejects(f.call('/api/user/recovery/verify',{challenge:issued.challenge,code}),/5 lần/);
+  assert.equal((await f.call('/api/user/recovery/status',{},f.user.sessionToken)).email,null);
+ });
+ test(label+': reset by email or username uses OTP and rejects expired, superseded and reused codes',async t=>{
+  const f=await fixture(t,cloud),email='member@example.test';const issued=await f.call('/api/user/recovery/email',{email,password:f.password,codeFormat:'otp6'},f.user.sessionToken);await f.call('/api/user/recovery/verify',{challenge:issued.challenge,code:f.mails.at(-1).code});
+  const reset1=await f.call('/api/user/recovery/request',{identifier:email,codeFormat:'otp6'}),code1=f.mails.at(-1).code;
+  const reset2=await f.call('/api/user/recovery/request',{identifier:'member',codeFormat:'otp6'}),code2=f.mails.at(-1).code;
+  await assert.rejects(f.call('/api/user/recovery/reset',{challenge:reset1.challenge,code:code1,password:'new-password-123'}),/Mã|hết hạn/);
+  await f.call('/api/user/recovery/reset',{challenge:reset2.challenge,code:code2,password:'new-password-123'});
+  await assert.rejects(f.call('/api/user/profile',{displayName:'Old session'},f.user.sessionToken),/Phiên/);
+  assert.ok((await f.call('/api/user/login',{username:email,password:'new-password-123'})).sessionToken);
+  await assert.rejects(f.call('/api/user/recovery/reset',{challenge:reset2.challenge,code:code2,password:'another-password-123'}),/Mã|hết hạn/);
+  const last=await f.call('/api/user/recovery/request',{identifier:email,codeFormat:'otp6'}),lastCode=f.mails.at(-1).code;f.advance(900001);await assert.rejects(f.call('/api/user/recovery/reset',{challenge:last.challenge,code:lastCode,password:'another-password-123'}),/hết hạn/);
+ });
+ test(label+': email cannot be newly linked to two accounts',async t=>{
+  const f=await fixture(t,cloud),email='shared@example.test';const second=await f.call('/api/user/register',{username:'second',password:f.password,displayName:'Second',consentVersion:'group4-account-v1'});
+  const a=await f.call('/api/user/recovery/email',{email,password:f.password,codeFormat:'otp6'},f.user.sessionToken),codeA=f.mails.at(-1).code;
+  const b=await f.call('/api/user/recovery/email',{email,password:f.password,codeFormat:'otp6'},second.sessionToken),codeB=f.mails.at(-1).code;
+  const results=await Promise.allSettled([f.call('/api/user/recovery/verify',{challenge:a.challenge,code:codeA}),f.call('/api/user/recovery/verify',{challenge:b.challenge,code:codeB})]);assert.equal(results.filter(r=>r.status==='fulfilled').length,1);
+  assert.equal((await f.db.prepare('SELECT COUNT(*) n FROM recovery_emails WHERE email=?').bind(email).first()).n,1);
+ });
+}
+test('unknown account OTP reset keeps the same response shape and sends no email',async t=>{
+ const f=await fixture(t);const a=await f.call('/api/user/recovery/request',{identifier:'unknown',codeFormat:'otp6'}),b=await f.call('/api/user/recovery/request',{identifier:'member',codeFormat:'otp6'});assert.equal(a.message,b.message);assert.deepEqual(Object.keys(a),Object.keys(b));assert.match(a.challenge,/^[a-f0-9]{64}$/);assert.notEqual(a.challenge,b.challenge);assert.equal(f.mails.length,0);
+});
+test('OTP email contains six digits and no long reset link or challenge',async()=>{
+ let sent;const mailer=recoveryMailer({SUN_BREVO_API_KEY:'test-key',SUN_MAIL_FROM:'sender@example.test'},async(url,options)=>{sent=JSON.parse(options.body);return new Response('{}',{status:201});});await mailer({to:'recipient@example.test',kind:'verify',code:'012345',origin:'https://test.example'});assert.match(sent.textContent,/012345/);assert.doesNotMatch(sent.textContent,/#verify-email|undefined|https:/);
+});
+
+for(const cloud of [false,true])test((cloud?'D1':'SQLite')+': legacy duplicate emails never select an arbitrary account',async t=>{
+ const f=await fixture(t,cloud),email='duplicate@example.test';const second=await f.call('/api/user/register',{username:'second',password:f.password,displayName:'Second',consentVersion:'group4-account-v1'});
+ for(const username of ['member','second'])await f.db.prepare('INSERT INTO recovery_emails(user_id,email,verified_at) SELECT id,?,? FROM user_accounts WHERE username=?').bind(email,new Date().toISOString(),username).run();
+ await assert.rejects(f.call('/api/user/login',{username:email,password:f.password}),/chưa đúng/);assert.ok((await f.call('/api/user/login',{username:'second',password:f.password})).sessionToken);
+ const reset=await f.call('/api/user/recovery/request',{identifier:email,codeFormat:'otp6'});assert.ok(reset.challenge);assert.equal(f.mails.length,0);
+});

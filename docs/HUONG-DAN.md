@@ -137,7 +137,7 @@ Mỗi thiết bị/trình duyệt có mã riêng. Xóa dữ liệu trang làm m�
 
 ## 9. Đăng nhập tùy chọn
 
-Bấm **Đăng nhập** ở đầu trang để đăng nhập hoặc tạo tài khoản với tên hiển thị. Không cần email. Mật khẩu người dùng mới dài 12–128 ký tự; tên đăng nhập gồm 3–32 chữ/số/gạch dưới. Từ bản 3.7, mở Góc của bạn → Email khôi phục tài khoản để thêm và xác minh email khi còn nhớ mật khẩu. Sau đó có thể chọn Quên mật khẩu? để đặt lại qua email; cần Group 4 bật gửi thư theo [hướng dẫn này](EMAIL-KHOI-PHUC.md). Không đăng nhập vẫn dùng đầy đủ đồng hồ, lịch sử, check-in và chia sẻ tự nguyện.
+Bấm **Đăng nhập** ở đầu trang để đăng nhập hoặc tạo tài khoản với tên hiển thị. Đăng nhập thành công sẽ đóng hộp thoại để dùng app ngay. Mật khẩu người dùng mới dài 12–128 ký tự; tên đăng nhập gồm 3–32 chữ/số/gạch dưới. Email không bắt buộc khi tạo tài khoản. Từ bản 3.8, bấm tên của bạn → **Email đăng nhập & khôi phục** để thêm email khi còn nhớ mật khẩu, rồi nhập mã xác minh 6 số. Sau đó có thể đăng nhập bằng tên đăng nhập hoặc email đã xác minh. Khi quên mật khẩu, nhập một trong hai để nhận mã 6 số và đặt lại mật khẩu; cần Group 4 bật gửi thư theo [hướng dẫn này](EMAIL-KHOI-PHUC.md). Không đăng nhập vẫn dùng đầy đủ đồng hồ, lịch sử, check-in và chia sẻ tự nguyện.
 
 Tài khoản **group4** được xác thực rồi chuyển thẳng tới dashboard; tài khoản người dùng ở lại app. Người dùng đổi tên tại **Xin chào, …**; tên trên dashboard cập nhật sau khi lưu lại biểu mẫu chia sẻ. Đăng xuất không xóa lịch sử hoặc tự tắt chia sẻ đang bật.
 

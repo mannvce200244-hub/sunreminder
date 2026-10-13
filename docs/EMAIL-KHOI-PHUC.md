@@ -1,6 +1,6 @@
 # Bật email khôi phục miễn phí cho SunReminder
 
-Áp dụng bản web/PWA 3.7. Tính năng đã có trong mã nguồn; chưa gửi được thư thật cho đến khi Group 4 cấu hình dịch vụ. Không cần thay mật khẩu admin.
+Áp dụng bản web/PWA 3.8. Gửi thư cần cấu hình dịch vụ ở máy chủ; nếu đã cấu hình Brevo thì giữ nguyên các khóa hiện có. Không cần thay mật khẩu admin.
 
 ## 1. Tạo dịch vụ gửi thư
 
@@ -29,13 +29,13 @@ Mở https://sunreminder.group4-ssg105.workers.dev/api/config : `emailRecovery: 
 ## 3. Thử bằng tài khoản người dùng của bạn
 
 1. Đóng các cửa sổ SunReminder rồi mở lại để nhận bản mới.
-2. Đăng nhập một tài khoản người dùng (không dùng tài khoản quản trị group4).
-3. Mở **Góc của bạn → Email khôi phục tài khoản**, nhập email nhận thư và mật khẩu hiện tại, bấm **Gửi thư xác minh email**.
-4. Mở thư → mở liên kết → bấm **Xác minh email**. Liên kết tự nó chưa xác minh cho đến khi bạn bấm nút trong app.
-5. Đăng xuất. Chọn **Đăng nhập → Quên mật khẩu?**, nhập đúng tên đăng nhập và email vừa xác minh.
-6. Mở thư mới, đặt mật khẩu mới dài 12–128 ký tự và xác nhận. Thử đăng nhập bằng mật khẩu mới; mật khẩu cũ phải bị từ chối.
+2. Đăng nhập tài khoản người dùng. Hộp đăng nhập tự đóng và bạn dùng app ngay; không bắt buộc xác minh email để vào app.
+3. Khi muốn thêm email, bấm tên của bạn ở đầu trang → **Email đăng nhập & khôi phục**. Nhập email nhận thư và mật khẩu tài khoản SunReminder hiện tại, bấm **Gửi mã xác minh**.
+4. Mở thư, lấy **mã 6 số**, trở lại cửa sổ app vừa yêu cầu mã và nhập mã → **Xác minh & vào app**. Xác minh thành công sẽ tự đóng hộp thoại.
+5. Từ đó, có thể đăng nhập bằng **tên đăng nhập hoặc email đã xác minh**, cùng mật khẩu SunReminder. Một email chỉ liên kết với một tài khoản.
+6. Khi quên mật khẩu: **Đăng nhập → Quên mật khẩu?** → nhập tên đăng nhập hoặc email → **Gửi mã 6 số** → nhập mã và mật khẩu mới dài 12–128 ký tự. Sau khi đặt lại, đăng nhập bằng mật khẩu mới; mật khẩu cũ phải bị từ chối.
 
-Liên kết có hiệu lực 15 phút và chỉ dùng một lần; khi yêu cầu lại thì dùng thư mới nhất. Đổi mật khẩu đăng xuất các phiên cũ. Nếu mở email trong tab mới, tab này chỉ xử lý khôi phục khi đồng hồ đang mở ở tab khác; xong thì đóng tab email và trở lại app.
+Mã có hiệu lực 15 phút, chỉ dùng một lần, tối đa 5 lần nhập. Khi yêu cầu lại, dùng thư mới nhất. Giữ cửa sổ nhập mã đang mở trong lúc xem email; nếu đóng hộp thoại hoặc tải lại trang, hãy yêu cầu mã mới. Đổi mật khẩu đăng xuất các phiên cũ. Liên kết đã gửi từ bản cũ vẫn được hỗ trợ trong thời hạn ban đầu.
 
 Tài khoản cũ vẫn giữ nguyên. Người dùng phải thêm và xác minh email **khi còn nhớ mật khẩu**. Tài khoản đã quên mật khẩu nhưng chưa xác minh email không thể tự khôi phục bằng email. Email không xuất hiện trên dashboard thống kê. Tài khoản `group4` được quản lý bằng Secret admin riêng, không dùng luồng email này.
 

@@ -3,19 +3,22 @@ import {accountHash,accountRandom,accountPasswordHash,accountEqual} from './acco
 export const RECOVERY_SCHEMA=[
  'CREATE TABLE IF NOT EXISTS recovery_emails(user_id TEXT PRIMARY KEY REFERENCES user_accounts(id) ON DELETE CASCADE,email TEXT NOT NULL,verified_at TEXT NOT NULL)',
  'CREATE TABLE IF NOT EXISTS recovery_tokens(user_id TEXT NOT NULL REFERENCES user_accounts(id) ON DELETE CASCADE,kind TEXT NOT NULL,token_hash TEXT NOT NULL UNIQUE,email TEXT NOT NULL,password_hash TEXT NOT NULL,expires INTEGER NOT NULL,PRIMARY KEY(user_id,kind))',
- 'CREATE INDEX IF NOT EXISTS recovery_tokens_expiry ON recovery_tokens(expires)'
+ 'CREATE INDEX IF NOT EXISTS recovery_tokens_expiry ON recovery_tokens(expires)',
+ 'CREATE INDEX IF NOT EXISTS recovery_email_lookup ON recovery_emails(email)',
+ 'CREATE TABLE IF NOT EXISTS recovery_codes(challenge_hash TEXT PRIMARY KEY,token_hash TEXT NOT NULL,code_hash TEXT NOT NULL,attempts INTEGER NOT NULL DEFAULT 0,expires INTEGER NOT NULL)',
+ 'CREATE INDEX IF NOT EXISTS recovery_codes_expiry ON recovery_codes(expires)'
 ];
 const fail=(status,message)=>{throw Object.assign(new Error(message),{status});};
 const emailOf=v=>{if(typeof v!=='string'||v.length>254||! /^[^\s<>@]+@[^\s<>@]+\.[^\s<>@]+$/.test(v)||/[\r\n\x00-\x1f]/.test(v))fail(400,'Nhập địa chỉ email hợp lệ.');return v.trim().toLowerCase();};
 export function recoveryMailer(env,request=fetch){
  const apiKey=typeof env.SUN_BREVO_API_KEY==='string'?env.SUN_BREVO_API_KEY.trim():'',from=typeof env.SUN_MAIL_FROM==='string'?env.SUN_MAIL_FROM.trim():'';
  if(!apiKey||!from)return null;
- return async({to,kind,token,origin})=>{
+ return async({to,kind,token,code,origin})=>{
   const link=origin+'/#'+(kind==='verify'?'verify-email=':'reset-password=')+token;
   if(/[\r\n\x00-\x1f]/.test(apiKey))fail(503,'Khóa gửi thư chưa đúng định dạng (MAIL_CONFIG). Group 4 cần kiểm tra SUN_BREVO_API_KEY.');
   try{emailOf(from);}catch{fail(503,'Địa chỉ gửi thư chưa hợp lệ (MAIL_SENDER). Group 4 cần kiểm tra SUN_MAIL_FROM.');}
   let response;
-  try{response=await request('https://api.brevo.com/v3/smtp/email',{method:'POST',headers:{'Content-Type':'application/json','api-key':apiKey},body:JSON.stringify({sender:{name:'SunReminder · Group 4',email:from},to:[{email:to}],subject:kind==='verify'?'Xác minh email khôi phục SunReminder':'Đặt lại mật khẩu SunReminder',textContent:(kind==='verify'?'Bạn vừa yêu cầu liên kết email này với tài khoản SunReminder.':'Bạn vừa yêu cầu đặt lại mật khẩu SunReminder.')+'\n\nMở liên kết sau (có hiệu lực 15 phút, chỉ dùng một lần):\n'+link+(kind==='verify'?'\n\nNếu không bấm được liên kết, sao chép toàn bộ liên kết vào thanh địa chỉ trình duyệt.':'\n\nNếu không mở được liên kết, nhập mã sau vào mục Khôi phục tài khoản trong app:\n'+token)+'\n\nNếu không phải bạn yêu cầu, hãy bỏ qua thư. Không chia sẻ liên kết hoặc mã này với người khác.'}),signal:AbortSignal.timeout(12000),redirect:'manual'});}
+  try{response=await request('https://api.brevo.com/v3/smtp/email',{method:'POST',headers:{'Content-Type':'application/json','api-key':apiKey},body:JSON.stringify({sender:{name:'SunReminder · Group 4',email:from},to:[{email:to}],subject:kind==='verify'?'Xác minh email khôi phục SunReminder':'Đặt lại mật khẩu SunReminder',textContent:code?('Mã '+(kind==='verify'?'xác minh email':'đặt lại mật khẩu')+' SunReminder của bạn là: '+code+'\n\nNhập 6 số này trong cửa sổ SunReminder bạn vừa yêu cầu mã. Mã có hiệu lực 15 phút, chỉ dùng một lần; tối đa 5 lần nhập. Không chia sẻ mã này với người khác. Nếu không phải bạn yêu cầu, hãy bỏ qua thư.'):((kind==='verify'?'Bạn vừa yêu cầu liên kết email này với tài khoản SunReminder.':'Bạn vừa yêu cầu đặt lại mật khẩu SunReminder.')+'\n\nMở liên kết sau (có hiệu lực 15 phút, chỉ dùng một lần):\n'+link+(kind==='verify'?'\n\nNếu không bấm được liên kết, sao chép toàn bộ liên kết vào thanh địa chỉ trình duyệt.':'\n\nNếu không mở được liên kết, nhập mã sau vào mục Khôi phục tài khoản trong app:\n'+token)+'\n\nNếu không phải bạn yêu cầu, hãy bỏ qua thư. Không chia sẻ liên kết hoặc mã này với người khác.')}),signal:AbortSignal.timeout(12000),redirect:'manual'});}
   catch(error){fail(503,['AbortError','TimeoutError'].includes(error?.name)?'Dịch vụ gửi thư phản hồi quá lâu (MAIL_TIMEOUT). Vui lòng thử lại sau.':'Chưa kết nối được dịch vụ gửi thư (MAIL_NETWORK). Vui lòng thử lại sau.');}
   // workerd only supports follow/manual. Reject redirects ourselves so API keys never leave Brevo.
   if(response.status>=300&&response.status<400)fail(503,'Dịch vụ gửi thư yêu cầu chuyển hướng không được phép (MAIL_REDIRECT). Group 4 cần kiểm tra kết nối Brevo.');
@@ -38,23 +41,49 @@ export async function recoveryApi({path,method,authorization,readBody,db,rate,se
  if(method!=='POST')fail(405,'Chức năng này cần POST.');
  const now=clock(),q=(sql,...args)=>db.prepare(sql).bind(...args),body=await readBody();
  await rate('recovery-ip',15,900000);
- const tokenDigest=async()=>{if(typeof body.token!=='string'||!/^[a-f0-9]{64}$/.test(body.token))fail(400,'Liên kết hoặc mã xác nhận không hợp lệ.');return accountHash(body.token);};
- async function issue(user,email,kind){
+ const tokenDigest=async()=>{
+  if(body.challenge!==undefined){
+   if(typeof body.challenge!=='string'||!/^[a-f0-9]{64}$/.test(body.challenge)||typeof body.code!=='string'||!/^\d{6}$/.test(body.code))fail(400,'Nhập đúng mã xác nhận gồm 6 số.');
+   const challengeHash=await accountHash(body.challenge);
+   // Atomic budget across IPs: concurrent requests cannot test more than five guesses.
+   const attempt=await q('UPDATE recovery_codes SET attempts=attempts+1 WHERE challenge_hash=? AND expires>? AND attempts<5 RETURNING token_hash,code_hash',challengeHash,now).first();
+   if(!attempt||!accountEqual(attempt.code_hash,await accountHash(body.challenge+':'+body.code)))fail(400,'Mã chưa đúng, đã hết hạn hoặc đã nhập quá 5 lần. Hãy yêu cầu mã mới.');
+   return attempt.token_hash;
+  }
+ if(typeof body.token!=='string'||!/^[a-f0-9]{64}$/.test(body.token))fail(400,'Liên kết hoặc mã xác nhận không hợp lệ.');return accountHash(body.token);};
+ async function issue(user,email,kind,challenge=null){
   await rate('recovery-send-user:'+user.id,3,900000,true);
   await rate('recovery-send-email:'+await accountHash(email),5,3600000,true);
   await rate('recovery-send-global',100,86400000,true);
   const token=accountRandom(),digest=await accountHash(token);
   await q('DELETE FROM recovery_tokens WHERE expires<=?',now).run();
   await q('INSERT INTO recovery_tokens(user_id,kind,token_hash,email,password_hash,expires) VALUES(?,?,?,?,?,?) ON CONFLICT(user_id,kind) DO UPDATE SET token_hash=excluded.token_hash,email=excluded.email,password_hash=excluded.password_hash,expires=excluded.expires',user.id,kind,digest,email,user.password_hash,now+900000).run();
-  try{await sendMail({to:email,kind,token,origin});}catch(error){await q('DELETE FROM recovery_tokens WHERE token_hash=?',digest).run();throw error;}
+  let code;
+  if(challenge){
+   let value;do{value=crypto.getRandomValues(new Uint32Array(1))[0];}while(value>=4294000000);
+   code=String(value%1000000).padStart(6,'0');
+   await q('DELETE FROM recovery_codes WHERE expires<=? OR token_hash NOT IN (SELECT token_hash FROM recovery_tokens)',now).run();
+   await q('INSERT INTO recovery_codes(challenge_hash,token_hash,code_hash,expires) VALUES(?,?,?,?)',await accountHash(challenge),digest,await accountHash(challenge+':'+code),now+900000).run();
+  }
+  try{await sendMail({to:email,kind,...(challenge?{code}:{token}),origin});}catch(error){await q('DELETE FROM recovery_tokens WHERE token_hash=?',digest).run();await q('DELETE FROM recovery_codes WHERE token_hash=?',digest).run();throw error;}
+
  }
  if(path==='/api/user/recovery/request'){
   if(!sendMail)fail(503,'Group 4 chưa bật dịch vụ gửi email. Tài khoản và lịch sử vẫn được giữ.');
+  if(body.codeFormat==='otp6'){
+   const identifier=typeof body.identifier==='string'?body.identifier.trim().toLowerCase():'';
+   const byEmail=identifier.includes('@');if(byEmail)emailOf(identifier);else if(!/^[a-z0-9_]{3,32}$/.test(identifier))fail(400,'Nhập tên đăng nhập hoặc email hợp lệ.');
+   await rate('recovery-request:'+await accountHash(identifier),3,900000,true);
+   const user=byEmail?await q('SELECT u.*,e.email FROM user_accounts u JOIN recovery_emails e ON e.user_id=u.id WHERE e.email=? AND (SELECT COUNT(*) FROM recovery_emails WHERE email=?)=1',identifier,identifier).first():await q('SELECT u.*,e.email FROM user_accounts u JOIN recovery_emails e ON e.user_id=u.id WHERE u.username=?',identifier).first();
+   const challenge=accountRandom();
+   if(user){try{await issue(user,user.email,'reset',challenge);}catch{}}
+   return{ok:true,challenge,message:'Nếu tài khoản có email đã xác minh, mã 6 số sẽ được gửi. Kiểm tra cả thư rác; dùng mã trong thư mới nhất.'};
+  }
+  // Compatibility for tabs still running the previous app version.
   const email=emailOf(body.email),username=typeof body.username==='string'?body.username.trim().toLowerCase():'';
   if(!/^[a-z0-9_]{3,32}$/.test(username))fail(400,'Nhập tên đăng nhập hợp lệ.');
   await rate('recovery-request:'+await accountHash(username+'|'+email),3,900000,true);
   const user=await q('SELECT u.* FROM user_accounts u JOIN recovery_emails e ON e.user_id=u.id WHERE u.username=? AND e.email=?',username,email).first();
-  // Same response for absent accounts, unverified emails, or a failed provider delivery.
   if(user){try{await issue(user,email,'reset');}catch{}}
   return{ok:true,message:'Nếu tên đăng nhập và email đã xác minh khớp, thư sẽ được gửi. Kiểm tra cả thư rác; chỉ liên kết mới nhất còn hiệu lực.'};
  }
@@ -66,7 +95,7 @@ export async function recoveryApi({path,method,authorization,readBody,db,rate,se
   let result;
   if(kind==='verify'){
    result=await db.batch([
-    q('INSERT INTO recovery_emails(user_id,email,verified_at) SELECT t.user_id,t.email,? FROM recovery_tokens t JOIN user_accounts u ON u.id=t.user_id WHERE t.token_hash=? AND t.kind=? AND t.expires>? AND t.password_hash=u.password_hash ON CONFLICT(user_id) DO UPDATE SET email=excluded.email,verified_at=excluded.verified_at',new Date(now).toISOString(),digest,kind,now),
+    q('INSERT INTO recovery_emails(user_id,email,verified_at) SELECT t.user_id,t.email,? FROM recovery_tokens t JOIN user_accounts u ON u.id=t.user_id WHERE t.token_hash=? AND t.kind=? AND t.expires>? AND t.password_hash=u.password_hash AND NOT EXISTS(SELECT 1 FROM recovery_emails other WHERE other.email=t.email AND other.user_id<>t.user_id) ON CONFLICT(user_id) DO UPDATE SET email=excluded.email,verified_at=excluded.verified_at',new Date(now).toISOString(),digest,kind,now),
     q('DELETE FROM recovery_tokens WHERE user_id=? AND kind=? AND EXISTS(SELECT 1 FROM recovery_emails WHERE user_id=? AND email=?)',row.user_id,'reset',row.user_id,row.email),
     q('DELETE FROM recovery_tokens WHERE token_hash=?',digest)
    ]);
@@ -79,7 +108,8 @@ export async function recoveryApi({path,method,authorization,readBody,db,rate,se
     q('DELETE FROM recovery_tokens WHERE user_id=? AND EXISTS(SELECT 1 FROM user_accounts WHERE id=? AND password_hash=?)',row.user_id,row.user_id,password)
    ]);
   }
-  if(!(result[0].meta?.changes??result[0].changes))fail(400,'Liên kết đã được dùng hoặc đã thay đổi. Hãy yêu cầu thư mới.');
+  if(!(result[0].meta?.changes??result[0].changes))fail(400,'Mã đã được dùng, đã thay đổi hoặc email đã liên kết với tài khoản khác. Hãy yêu cầu mã mới hoặc dùng email khác.');
+  await q('DELETE FROM recovery_codes WHERE token_hash NOT IN (SELECT token_hash FROM recovery_tokens)').run();
   return{ok:true,message:kind==='verify'?'Đã xác minh email khôi phục.':'Đã đặt mật khẩu mới và đăng xuất các phiên cũ. Hãy đăng nhập lại.'};
  }
  const token=authorization?.match(/^Bearer ([a-f0-9]{64})$/)?.[1];
@@ -95,8 +125,9 @@ export async function recoveryApi({path,method,authorization,readBody,db,rate,se
   const email=emailOf(body.email);
   await rate('recovery-password:'+user.id,5,900000,true);
   if(typeof body.password!=='string'||body.password.length>128||!accountEqual(await accountPasswordHash(body.password,user.salt),user.password_hash))fail(400,'Mật khẩu hiện tại chưa đúng.');
-  await issue(user,email,'verify');
-  return{ok:true,message:'Đã gửi thư xác minh. Email cũ (nếu có) vẫn được giữ đến khi bạn xác minh email mới.'};
+  const challenge=body.codeFormat==='otp6'?accountRandom():null;
+  await issue(user,email,'verify',challenge);
+  return{ok:true,...(challenge?{challenge}:{}),message:challenge?'Đã gửi mã 6 số. Nhập mã bên dưới để xác minh email.':'Đã gửi thư xác minh. Email cũ (nếu có) vẫn được giữ đến khi bạn xác minh email mới.'};
  }
  fail(404,'Không tìm thấy chức năng khôi phục.');
 }

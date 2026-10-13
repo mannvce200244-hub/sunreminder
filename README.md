@@ -74,4 +74,4 @@ Một biểu mẫu chung cho thống kê, thời gian app hiển thị, tên và
 
 Lời mời đầu tiên có **Đồng ý chia sẻ / Để sau**; thống kê và thời gian dùng chỉ bật sau khi đồng ý. GPS vẫn tùy chọn, chỉ xin quyền sau thao tác của người dùng. Ghi nhớ quyết định và giữ nguyên đồng ý cũ; Cài đặt có nút đổi lựa chọn, ngừng hoặc xóa dữ liệu. Xem [hướng dẫn](docs/HUONG-DAN.md) và [kiểm chứng 3.6](docs/QA-v3.6.md).
 
-Bản web/PWA 3.7 sửa đồng hồ tiêu đề tab nền, thêm nút bật/thử chuông và nhắc nền, bổ sung khôi phục mật khẩu qua email đã xác minh. Group 4 cần cấu hình gửi thư theo [EMAIL-KHOI-PHUC.md](docs/EMAIL-KHOI-PHUC.md).
+Bản web/PWA 3.8 đóng hộp thoại sau khi đăng nhập thành công, hỗ trợ đăng nhập bằng tên hoặc email đã xác minh, xác minh và khôi phục mật khẩu bằng mã 6 số. Giữ các cải tiến đồng hồ tab nền, chuông và nhắc nền từ bản 3.7. Group 4 cần cấu hình gửi thư theo [EMAIL-KHOI-PHUC.md](docs/EMAIL-KHOI-PHUC.md).
