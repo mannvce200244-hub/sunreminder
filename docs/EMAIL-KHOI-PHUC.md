@@ -72,3 +72,5 @@ Chuông ba nốt phát khi trang còn hoạt động và trình duyệt cho phé
 | MAIL_REJECTED | Yêu cầu bị Brevo từ chối, cần kiểm tra cấu hình người gửi và nhật ký |
 
 Phản hồi thô của Brevo không được gửi ra giao diện hoặc log vì có thể chứa thông tin riêng. Luồng Quên mật khẩu vẫn trả lời chung để tránh tiết lộ tài khoản có tồn tại. Việc ô mật khẩu bị xóa sau khi gửi là chủ ý của app, không có nghĩa bạn đã nhập sai.
+
+Bản 3.7.2 sửa lỗi MAIL_NETWORK do tùy chọn redirect không tương thích Cloudflare. Nếu còn dùng bản cũ, đóng hết cửa sổ app rồi mở lại trước khi thử gửi. MAIL_REDIRECT nghĩa là dịch vụ trả chuyển hướng và app đã chặn để bảo vệ khóa API.
